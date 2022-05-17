@@ -11,7 +11,7 @@ cmake-build-debug/
 *.vcxproj.user
 .editorconfig
 *.xlsx
-
+.DS_Store
 node_modules/
 # C extensions
 *.so
