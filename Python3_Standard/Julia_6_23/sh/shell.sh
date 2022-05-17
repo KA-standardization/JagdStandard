@@ -1,0 +1,2 @@
+/usr/bin/time -p echo "" > /var/log/imfaker/celery/*.log;echo "" > /alidata/server/imfaker/logs/task.log
+/usr/bin/time --verbose echo "" > /var/log/imfaker/celery/*.log;echo "" > /alidata/server/imfaker/logs/task.log

@@ -1,0 +1,3 @@
+npm config set prefix "J:\nodejs\node_global"
+npm config set cache "J:\nodejs\node_cache"
+C:\Users\root\AppData\Roaming\npm
