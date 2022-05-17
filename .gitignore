@@ -15,7 +15,8 @@ cmake-build-debug/
 node_modules/
 # C extensions
 *.so
-
+*.dSYM
+*.xcodeproj
 # Distribution / packaging
 .Python
 build/
