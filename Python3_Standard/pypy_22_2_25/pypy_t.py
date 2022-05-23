@@ -9,6 +9,8 @@ import time
             JIT编译器还会缓存已编译的代码
 """
 
+
+#     pypy -m ensurepip pypy -mpip install xxx
 def foo():
     t = 0
     for i in range(100000000):
