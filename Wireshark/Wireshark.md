@@ -341,5 +341,11 @@ tshark -r packet.pcap -z conv,ip
 tshark -r packet.pcap -z follow,tcp,ascii,0
 ```
 
+# 7.网络层协议
 
+### ARP(Address Resolution Protocol地址解析协议)
+
+> 在已知远程主机的IP地址创建通信应用,也就意味着系统已经拥有了所有其需要的信息,用来构建它想要在第3层到第7层中传递的数据包.
+>
+> 这时它所需的唯一信息就是第2层包含有目标主机MAC地址的数据链路层数据
 
