@@ -42,7 +42,11 @@ def main(hosts, cmd):
 
 
 if __name__ == '__main__':
-    from twitter.twitter.ssh_script.ssh_config import hosts
+    # import sys
+    # sys.path.append('Python3_Standard/paramiko_22_5_24')
+    # print(sys.path)
+    # print(__file__, __name__, __package__, sep='>--<')
+    from paramiko_22_5_24.ssh_config import hosts
 
     main(
         hosts,
