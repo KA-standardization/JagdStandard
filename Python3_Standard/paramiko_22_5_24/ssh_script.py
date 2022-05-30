@@ -42,6 +42,7 @@ def main(hosts, cmd):
 
 
 if __name__ == '__main__':
+    # ls -lR|grep '^d'|gawk '{print "/logs/ts_scrapy/"$9}'|xargs ls -lR |grep '^[/-]'
     # import sys
     # sys.path.append('Python3_Standard/paramiko_22_5_24')
     # print(sys.path)
