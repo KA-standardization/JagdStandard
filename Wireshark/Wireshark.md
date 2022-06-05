@@ -406,3 +406,98 @@ ping 10.0.17.100
 tracert 10.0.17.100
 ```
 
+# 8.传输层协议
+
+### 传输控制协议(Transmission Control Protocol, TCP)
+
+> TCP报头 152
+>
+> ​	序号(sequence number): 这个数字用来表示一个TCP片段,这个域用来保证数据流中的部分没有缺失
+>
+> ​	确认号(acknowledgment number): 这个数字是通信中希望从另一个设备中得到的下一个数据包的序号
+>
+> ​	标志(flags): 
+>
+> ​	窗口大小(window size): TCP接收者缓冲的字节大小
+
+> TCP端口 使用TCP通信时,我们有65535个端口可供使用
+>
+> 1-1023: 标准端口组
+>
+> 1024-65535: 临时端口组
+
+### 用户数据报协议(User Datagram Protocol, UDP)
+
+> 161
+
+# 9.常见高层网络协议
+
+### 动态主机配置协议(Dynamic Host Configuration Protocol)
+
+> 164
+
+| 类型号 | 消息类型 | 描述                                             |
+| ------ | -------- | ------------------------------------------------ |
+| 1      | 发现     | 客户端用来定位可用的DHCP服务器                   |
+| 2      | 提供     | 服务器用来给客户端发送发现数据包的响应           |
+| 3      | 请求     | 客户端用来请求服务器所提供的参数                 |
+| 4      | 拒绝     | 客户端向服务器指明数据包的无效参数               |
+| 5      | ACK      | 服务器向客户端发送所请求的配置参数               |
+| 6      | NAK      | 客户端向服务器拒绝其配置参数的请求               |
+| 7      | 释放     | 客户端向服务器通过取消配置参数来取消租约         |
+| 8      | 通知     | 当客户端已经有IP地址时客户端向服务器请求配置参数 |
+
+### 域名系统(Domain Name System, DNS)
+
+#### DNS数据包结构 174
+
+> QR(query/response): 用来指明这个数据包是DNS查询还是响应
+>
+> OpCode: 用来定义消息中请求的类型
+>
+> AA(Authoritative Answer): 如果响应数据包中设定了这个值,则说明这个响应是由域内权威域名服务器发出的
+>
+> TC(Truncation): 用来指明这个响应由于太长,无法装入数据包而被截断
+>
+> RD(Recursion Desired): DNS客户端在目标域名服务器不含有所请求的信息的情况下,要求进行递归查询
+>
+> RA(Recursion Available): 域名服务器支持递归查询
+>
+> ResponseCode: 在DNS响应中用来指明错误
+
+#### DNS问题类型
+
+> DNS查询和响应中所使用的类型域,指明了这个查询或者响应的资源记录类型
+
+| 值   | type  | description    |
+| ---- | ----- | -------------- |
+| 1    | A     | IPv4主机地址   |
+| 2    | NS    | 权威域名服务器 |
+| 5    | CNAME | 规范别名       |
+| 15   | MX    | 邮件交换       |
+| 16   | TXT   | 文本字符串     |
+| 28   | AAAA  | IPv6主机地址   |
+| 251  | IXFR  | 增量区域传送   |
+| 252  | AXFR  | 完整区域传送   |
+
+```
+yum -y install bind-utils
+dig zhihu.com
+```
+
+### 超文本传输协议(Hypertext Transfer Protocol, HTTP)
+
+# 10.基础场景
+
+```
+http.request.method=="GET" Statics>HTTP>Requests
+每一个会话初始SYN包
+tcp.flags.syn==1 && tcp.flags.ack==0
+```
+
+# 13.无线网络
+
+```
+309
+```
+
