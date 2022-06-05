@@ -302,6 +302,8 @@ tshark -r packet.pcap -Y "tcp.dstport==80"
 tcpdump -r packet.pcap 'tcp dst port 80'
 # 分包
 tcpdump -r packet.pcap 'tcp dst port 80' -w packet2.pcap
+# 打印出使用过滤表达式的BPF指令
+tcpdump  -d -r t1.pcap 'host 10.0.17.200'
 ```
 
 ```
