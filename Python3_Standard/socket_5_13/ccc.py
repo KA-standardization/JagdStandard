@@ -153,5 +153,6 @@ class portmapUDP(threading.Thread):
 
 
 if __name__ == '__main__':
+    # export http_proxy=http://127.0.0.1:1087;export https_proxy=http://127.0.0.1:1087;
     myp = portmap(6001, '127.0.0.1', 1087)
     myp.start()
