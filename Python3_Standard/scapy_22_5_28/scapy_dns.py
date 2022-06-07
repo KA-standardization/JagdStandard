@@ -2,6 +2,12 @@ import time
 
 from scapy.all import *
 
+# p0f -i ench0 -p #混杂模式
+"""
+https://www.jianshu.com/p/0a577b11ed71  tcpreplay
+https://ipcmen.com/ngrep                ngrep
+https://www.sans.org/cyber-security-courses/intrusion-detection-in-depth/
+"""
 if __name__ == '__main__':
     ####################################################################################################################
     """    
@@ -239,27 +245,108 @@ if __name__ == '__main__':
     # # a.world_trace()
     # traceroute_map(["www.baidu.com", "www.python.org"])
     ####################################################################################################################
-    #Asynchronous Sniffing
+    """
+    Sniffing Sessions
+    """
+    # IPSession→在流中对IP数据包进行分片，使一个流可以被prn使用
+    # p = sniff(session=IPSession, iface='Intel(R) Ethernet Connection (7) I219-V')
+    # TCPSession→对某些TCP协议进行碎片整理。目前支持: HTTP1.0 TLS
+    # p = sniff(session=TCPSession, prn=lambda x: x.summary(), store=False)
+    # p = sniff(session=NetflowSession, offline='./pcaps/a.pcap')
+    # print(p.show())
     ####################################################################################################################
+    """
+    bpf filter
+    """
+    # p = sniff(filter="tcp and ( port 443 or port 80 )",
+    #           prn=lambda x: x.sprintf("%IP.src%:%TCP.sport% -> %IP.dst%:%TCP.dport%  %2s,TCP.flags% : %TCP.payload%"))
+    # p.show()
     ####################################################################################################################
+    """
+    重复发包
+    """
+    # srloop(IP(dst="www.baidu.com/30") / TCP())
     ####################################################################################################################
+    """
+    导入导出数据
+    """
+
     ####################################################################################################################
+    """
+    使用raw()函数将整个数据包转换为二进制字符串
+    """
+    # pkts = sniff(count=1)
+    # pkt = pkts[0]
+    # print(pkt)
+    # pkt_raw = raw(pkt)
+    # print(pkt_raw)
     ####################################################################################################################
+    """
+    b64
+    """
+    # pkts = sniff(count=1)
+    # pkt = pkts[0]
+    # # pkt.show()
+    # export_object(pkt)
+    # b64 = 'eNqNU0tz21QUVtM0SZW6JTwK4RFEgNYpSJFkSba1YHBlJfG4kT120mrRIK6l61iDLPno4ZBhMrSLdmh37GAPw2OY6a6LMqUz9p/gB8Aww6/g6sZlxYLFnTn3O985557vnHtnzk1cNDoWAnSM40QIZNZMBzhmgXEdN/Kwm7A4zA0Wzth/Mwxzhvnky+mz6ZPpL8Lkm91CYYkxGWb6cPLt5C5xrnw6eTa9M/nx4sfTR4SV836bPFwMmMnjj6ZPd/muWesYO9w1bmdvr70pCVKB3Wl193ROLlUFWVVnR9SlqigW2N2apXPrSeKNdM9P3GiM43WC2jpHAvOwLA6JBwX8MAtSwogxDvkoPtQTHI99F1OnTsj7XbPD17ZNiwRtR9FhgDljEEdDvCmJsiAKqiiqglbibvmhFx0lBbbAwpy9QBoOUOqHEpy9D/MdOHcPFjqwWNyu/f7D40fLP61Z1kxAFLsD4eg0mrVwehTFnzXCFMd95GKHpGVhaeMunD8BtmizJK+L3AF2hkRaWLbsZYL4o7HiDHEa+y5caK4+x7TnWIFg8wQ7zHwPLtpXiPlFrW7UTVUt8WXpuskrW6LMVw2xxpdLoqIZoliVNfUELtlLhByjo4ooSxK8YNH7KI7GvodjWPmvHmZK/NtD0p7RWXiRNPLSCbxsr+RZcZKiOMWegzw0ImR45UHSow8N0RDDZfs8Mf/49fs/v/v5r6dfw6u0Lw+TYfmj1I9CeM2+SpC8UFDsbHB0AUOcckYUhtjNKVyxvME1ZKnK34RV+0Ke+lRhh5Z43ZYJdLuO85Hfttpbzv/U5Q37XK5x6OHP4c1mwZ6jisNbdoEYUlUWJK0iSIpQVmDNPkudCbztulEQnD4sYT3cR2T3PN9NWeBcx+llPlnF0HHYwE8I9s49WO/Au8Xm/AG8N1hDzYUDeN9eJcn6uCLqek9RFF1TPFVXNazp/QrCcAVltNwQuXCVqowruoYITdd6ulrRMYYifbuXDYfHsPGAXvoBOkzg2myafR8HXsJuEfAmCjLygz8gc/vQOgH+NHacoyA0L9NbrmQCmwcgFul23Gi12tdrRhMkKst+G2R7kRidfctqWNtQoqxbjY55w+x2QaGsVhNUOp96o2u0LMs09sw6aNRn1aCMaSn6WaHyVXYfqr2sZ6Wg94R/AGfEWMI='
+    # pkt2 = import_object(b64)
+    # pkt2.show()
     ####################################################################################################################
+    """
+    Session
+    """
+    # print(dir())
+    # save_session("session.scapy")
+    # load_session("session.scapy")
     ####################################################################################################################
+    """
+    Making tables
+    """
+    # ans, unans = sr(IP(dst="www.baidu.com/30", ttl=(1, 6)) / TCP())
+    # ans.make_table(lambda s, r: (s.dst, s.ttl, r.src))
+    #
+    # ans, unans = sr(IP(dst="172.20.80.192/28") / TCP(dport=[20, 21, 22, 25, 53, 80]))
+    # ans.make_table(lambda s, r: (s.dst, s.dport, r.sprintf("%IP.id%")))
     ####################################################################################################################
+    """
+    Routing
+    """
+    # print(conf.route)
+    # 设置路由表
+    # conf.route.delt(net="0.0.0.0/0", gw="192.168.8.1")
+    # conf.route.add(net="0.0.0.0/0", gw="192.168.8.254")
+    # conf.route.add(host="192.168.1.1", gw="192.168.8.1")
+    # print(conf.route)
+    # 恢复路由表
+    # conf.route.resync()
+    # print(conf.route)
     ####################################################################################################################
+    """
+    TCP跟踪路由功能
+    maxttl参数 停止
+    """
+    # traceroute(["www.baidu.com", "www.zhihu.com"], maxttl=20)
+    # res, unans = traceroute(["www.baidu.com", "www.zhihu.com"],
+    #                         dport=[80, 443], maxttl=20, retry=-2)
+    # # https://www.graphviz.org/download/ pip install pydot pip install pydot-ng pip install graphviz
+    # # http://rapidjson.org/md_doc_internals.html
+    # res.graph()  # piped to ImageMagick's display program. Image below.
+    # ## res.graph(type="ps", target="| lp")  # piped to postscript printer
+    # # res.graph(target="> D:\\graph.svg")  # saved to file
+    # res.trace3D() # pip install vpython
     ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
+    """
+    Wireless
+    """
+    # conf.iface.setmonitor(True)
+    # sendp(RadioTap() /
+    #       Dot11(addr1="ff:ff:ff:ff:ff:ff",
+    #             addr2="00:01:02:03:04:05",
+    #             addr3="00:01:02:03:04:05") /
+    #       Dot11Beacon(cap="ESS", timestamp=1) /
+    #       Dot11Elt(ID="SSID", info=RandString(RandNum(1, 50))) /
+    #       Dot11EltRates(rates=[130, 132, 11, 22]) /
+    #       Dot11Elt(ID="DSset", info="\x03") /
+    #       Dot11Elt(ID="TIM", info="\x00\x01\x00\x00"),
+    #       iface="mon0", loop=1)
+
