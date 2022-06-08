@@ -105,7 +105,8 @@ nmap -sS 10.0.17.100-200 -p 15672
 nmap -sV 10.0.17.104 -p 10000-20000
 # 对应网段计算机的MAC地址输出到文件 -oM输出到控制台
 nmap -sP -PI -PT -oN ipandmaclist.txt 10.0.17.0/24
-
+# 扫描端口
+nmap -sC -sV -oA 8-200
 ```
 
 > ARP查询过程
