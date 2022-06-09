@@ -191,23 +191,25 @@ nmap -sP -PI -PT -oN ipandmaclist.txt 10.0.17.0/24
 > >
 > > 所有都被设置PSH标志(比特位代表数字8)的数据包. tcp[13]&8==8
 
-| 过滤器                        | 说明                      |
-| ----------------------------- | ------------------------- |
-| tcp[13]&32==32                | 设置URG位的TCP数据包      |
-| tcp[13]&                      | 设置了ACK位的TCP数据包    |
-| tcp[13]&8==8                  | 设置了PSH位的TCP数据包    |
-| tcp[13]&4==4                  | 设置了RST位的TCP数据包    |
-| tcp[13]&2==2                  | 设置了SYN位的TCP数据包    |
-| tcp[13]&1==1                  | 设置了FIN位的TCP数据包    |
-| tcp[13]==18                   | TCP-SYN-ACK数据包         |
-| ether host 00:00:00:00:00:00  | 流入流出MAC地址的流量     |
-| !ether host 00:00:00:00:00:00 | 不流入流出MAC地址的流量   |
-| broadcast                     | 广播流量                  |
-| icmp                          | ICMP流量                  |
-| icmp[0:2]                     | ICMP目标不可达,主机不可达 |
-| ip                            | IPv4流量                  |
-| ip6                           | IPv6流量                  |
-| udp                           | UDP流量                   |
+| 过滤器                                   | 说明                      |
+| ---------------------------------------- | ------------------------- |
+| tcp[13]&32==32                           | 设置URG位的TCP数据包      |
+| tcp[13]&                                 | 设置了ACK位的TCP数据包    |
+| tcp[13]&8==8                             | 设置了PSH位的TCP数据包    |
+| tcp[13]&4==4                             | 设置了RST位的TCP数据包    |
+| tcp[13]&2==2                             | 设置了SYN位的TCP数据包    |
+| tcp[13]&1==1                             | 设置了FIN位的TCP数据包    |
+| tcp[13]==18                              | TCP-SYN-ACK数据包         |
+| tcp[((tcp[12:1]&0xf0)>>2):4])=0x504f5354 | POST                      |
+| tcp[((tcp[12:1]&0xf0)>>2):4])=0x47455420 | GET                       |
+| ether host 00:00:00:00:00:00             | 流入流出MAC地址的流量     |
+| !ether host 00:00:00:00:00:00            | 不流入流出MAC地址的流量   |
+| broadcast                                | 广播流量                  |
+| icmp                                     | ICMP流量                  |
+| icmp[0:2]                                | ICMP目标不可达,主机不可达 |
+| ip                                       | IPv4流量                  |
+| ip6                                      | IPv6流量                  |
+| udp                                      | UDP流量                   |
 
 ### 显示过滤器
 
@@ -293,6 +295,7 @@ tcpdump -nni eth0 #-n会禁用IP名称解析 -nn会禁用端口服务解析
 应用过滤器
 # -f参数来应用捕获过滤器 ""内遵从BPF语法
 tshark -ni 1 -w packet.pcap -f "tcp port 80"
+tshark -i 7 -w Jagd-24-7-T.pcap -f "tcp dst port 5601 and dst 10.0.24.100 and (tcp[((tcp[12:1]&0xf0)>>2):4])=0x504f5354"
 tcpdump -nni eth0 -w packet.pcap 'tcp port 80' # ''里构造过滤表达式
 tcpdump -nni eth0 -F dns_filter.bpf # BPF过滤文件
 # -Y参数来应用显示过滤器 ""内使用Wireshark语法
