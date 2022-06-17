@@ -1,4 +1,4 @@
-@SuppressWarnings({"rawtypes","unchecked"})
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class HeapSort_22_6_16 {
 
     public int heapSize;
