@@ -190,3 +190,8 @@ if __name__ == '__main__':
     #     time.sleep(0.5)
     # t.run()
     print(time.time() - time_s)
+
+    """
+    await coroutine function
+    yield from generator function
+    """
