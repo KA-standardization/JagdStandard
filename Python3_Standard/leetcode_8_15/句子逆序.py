@@ -1,5 +1,3 @@
-
-
 def foo():
     a = input()
     a = a.split(' ')
