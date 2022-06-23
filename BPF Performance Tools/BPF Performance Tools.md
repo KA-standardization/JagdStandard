@@ -7,7 +7,7 @@ vim /etc/ssh/sshd_config
 vim /etc/ssh/ssh_config 
 		PasswordAuthentication yes
 		PermitRootLogin prohibit-password yes
-service ssh restar
+service ssh restart
 ```
 
 ### BCC
