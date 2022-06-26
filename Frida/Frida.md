@@ -77,14 +77,6 @@ frida -UF -l call.js
 
 ```
 # 修改call.js为可以多次调用,并将完成主动调用的函数修改为导出的rpc函数
-	function call(a,b){
-		var Arith=Java.use('com.xxx.xxx.xxx.Arith')
-		var JavaString=Java.use('java.lang.String')
-		var result=Arith.sub(JavaString.$new(a),JavaString.$new(b))
-		console.log(a,"-",b,"=",result)
-	}
-	rpc.exports={
-		sub:callSub,
-	}
+# loader.py
 ```
 
