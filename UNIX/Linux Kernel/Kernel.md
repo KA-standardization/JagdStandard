@@ -68,3 +68,8 @@ tar -Jxf linux-3.12.tar.xz
 drivers/net/tun.c netif_receive_skb
 ```
 
+```
+https://www.kernel.org/doc/Documentation/trace/events.txt
+https://www.kernel.org/doc/Documentation/trace/ftrace.txt
+```
+
