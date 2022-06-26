@@ -27,11 +27,11 @@ class pipethread(threading.Thread):
         while True:
             try:
                 data = self.source.recv(1024)
-                if not data: break
+                # if not data: break
                 self.sink.send(data)
             except Exception as ex:
                 log("redirect error:" + str(ex))
-                break
+                # break
 
         self.source.close()
         self.sink.close()
