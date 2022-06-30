@@ -13,6 +13,21 @@ service ssh restart
 ### BCC
 
 ```
+sudo apt-get install arping bison clang-format cmake dh-python \
+  dpkg-dev pkg-kde-tools ethtool flex inetutils-ping iperf \
+  libbpf-dev libclang-dev libclang-cpp-dev libedit-dev libelf-dev \
+  libfl-dev libzip-dev linux-libc-dev llvm-dev libluajit-5.1-dev \
+  luajit python3-netaddr python3-pyroute2 python3-distutils python3
+git clone https://github.com/iovisor/bcc.git
+mkdir bcc/build; cd bcc/build
+cmake ..
+make
+make install
+```
+
+
+
+```
 execsnoop -t
 biolatency -m
 # 显示失败的open系统调用
@@ -20,6 +35,36 @@ opensnoop -x
 ```
 
 ### bpftrace
+
+```
+apt-get install -y \
+  bison \
+  cmake \
+  flex \
+  g++ \
+  git \
+  libelf-dev \
+  zlib1g-dev \
+  libfl-dev \
+  systemtap-sdt-dev \
+  binutils-dev \
+  libcereal-dev \
+  llvm-14-dev \
+  llvm-14-runtime \
+  libclang-14-dev \
+  clang-14 \
+  libgtest-dev \
+  libgmock-dev \
+  asciidoctor
+  
+git clone https://github.com/iovisor/bpftrace
+mkdir bpftrace/build; cd bpftrace/build;
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j8
+sudo make install
+```
+
+
 
 ```
 bpftrace -l 'tracepoint:syscalls:sys_enter_open*'
