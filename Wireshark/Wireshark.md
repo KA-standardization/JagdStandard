@@ -401,15 +401,32 @@ CIDR: 无类型域间选路(Classless Inter-Domain Routing)
 
 ```
 ping 10.0.17.100
+# 设置TTL数值
+ping www.baidu.com -i 1
+# ping指定端口 
+# tcping https://elifulkerson.com/projects/tcping.php
+tcping www.baidu.com 11111
 数据包的类型8,代码0: echo请求
 数据包的类型0,代码0: echo响应
 数据包的类型11,代码0: 数据包的TTL在传输过程中超时,目的不可达
+# RFC792 https://www.rfc-editor.org/rfc/rfc792.html
 ```
+
+| ICMP Type | ICMP Code | Description                                          |
+| --------- | --------- | ---------------------------------------------------- |
+| 0         | 0         | echo reply (echo请求)                                |
+| 3         | 0         | Destination Network Unreachable (网络不可达)         |
+| 3         | 1         | Destination Host Unreachable (主机不可达)            |
+| 3         | 3         | Destination Port Unreachable (端口不可达)            |
+| 8         | 0         | Echo Request (echo响应)                              |
+| 11        | 0         | TTL Expired (数据包的TTL在传输过程中超时,目的不可达) |
 
 > 路由跟踪
 
 ```
 tracert 10.0.17.100
+# 超时时间为1S
+traceroute -w 1 www.baidu.com
 ```
 
 # 8.传输层协议
@@ -432,7 +449,7 @@ tracert 10.0.17.100
 >
 > 1024-65535: 临时端口组
 
-| Flags |                                      |
+| Flags | 描述                                 |
 | ----- | ------------------------------------ |
 | ACK   | 确认序列号有效,表示响应              |
 | URG   | 紧急指针,此报文优先发送,不再按序发送 |
@@ -444,6 +461,8 @@ tracert 10.0.17.100
 ### 用户数据报协议(User Datagram Protocol, UDP)
 
 > 161
+>
+> https://www.bilibili.com/video/BV1e5411c7aY?p=24
 
 # 9.常见高层网络协议
 
@@ -516,10 +535,4 @@ tcp.flags.syn==1 && tcp.flags.ack==0
 309
 ```
 
-# 14.Route
-
-```
-# 超时时间为1S
-traceroute -w 1 www.baidu.com
-```
-
+# 14.Cyclic RedunDancy Check(CRC)
