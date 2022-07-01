@@ -1,0 +1,747 @@
+数据库：数据的仓库
+	以前存放数据：内存、文件
+	内存： int num = 10 ;  问题：临时
+	文件： 解析/操作起来麻烦
+
+-》永久存放，方便解析/管理 ->数据库
+
+主流的关系型数据库：
+	oracle：产品免费，服务收费，强大稳定性 安全性
+	mysql ：MySQL AB开源， 2008被SUN收购， 2009年被Oracle收购； 版本：社区Community免费,企业版收费  ；产品免费，服务收费
+	sql server:微软开发，强大的图形化工具，方便使用
+	db2：IBM，多个操作系统、多个硬件
+
+
+oracle版本：
+	oracle8i/9i:internet ,开始走向网络
+	oracle10g/11g:grid，网格计算，提高访问速度，避免舍近取远的问题
+	oracle12c:cloud，云计算
+	各个版本对于学习、研发 没有区别，只是在 最终的部署、运维时差异较大
+
+oracle11g：目前主流
+
+
+数据库服务器：将数据库部署在服务器上
+oracle服务器
+	1.基于关系型的数据库（RDBMS）: oracle  mysql  sqlserver  db2....
+		关系型->二维表
+	
+	非关系型：
+		NoSQL:not only sql  ,redis/mongodb  ：基于key-value结构   person.name 
+	2.组成结构
+		一个PGA对应于一个客户端：
+	
+	两阶段提交：
+	pga->sga
+	sg-a数据库（此阶段，会将一些重复/冗余的工作 进行合并，从而减少数据访问次数）
+
+select *from 表名; 查询语句
+
+
+基本概念：
+	实体：java中的类
+	记录：java的对象 (per(zs,23,170...)) ,行
+	字段：java的属性，列
+	表：同一个实体中，所有的记录、字段组合起来 就是一张表
+
+
+c
+ed
+				 
+列的计算：
+	select empno,ename ,sal ,sal*12 from emp;
+
+SQL：
+	什么控制行？什么控制列？
+
+什么控制列？select empno,ename from emp ;
+
+什么控制行？where
+
+字符串/字符 、日期  ： 单引号
+
+大小写问题：
+	a.命令/关键字：不敏感（不区别）
+	b.数据：敏感（区分
+
+
+
+运算符：
+	操作运算符： + - / *  %
+	关系运算符： > >= < <=     =    !=或<>
+				如果是null，必须用is ，或is not
+	逻辑运算福：  or  and  not
+	
+	select* from emp where not (mgr = 7788 and job = 'CLERK')
+
+
+	select* from emp where mgr = 7788 and job = 'CLERK';
+	where执行顺序：右->左
+
+
+null:
+	is/is not
+	null的计算：
+		任何数字 和null结算，结果为null  
+
+	需要对null进行处理：null->0
+		nvl:if
+		nvl(comm,0 )
+
+		nvl2:if...else
+		nvl2(comm,comm,0)
+				if(comm==null)  return 0
+				else   return comm
+
+对查询出的结果集去重：distinct
+select distinct deptno from emp
+
+连接符： 		java: "hello"+"world"->"helloworld"
+oracle:
+	concat   ||
+
+dual：oracle提供的 学习时使用 临时表：单行单列
+
+select 'hello'||'world' from dual;
+
+
+修改oracle默认的日期格式 
+默认：DD-MON-RR
+修改：
+	alter session set NLS_DATE_FORMAT = 'yyyy-mm-dd' ;
+
+	alter session set NLS_DATE_FORMAT = 'DD-MON-RR' ;
+
+
+
+---
+范围查询： 数字/日期
+	between  小 and  大
+>=小 and  <=大
+
+	
+
+模糊查询：
+	like
+		配合通配符使用：_  ：一个字符    
+				%  ：任意个字符
+
+	ename like ..
+	数字、日期：like
+
+	姓名中第二个字母是M的员工信息：
+		select *from emp where ename like  '_M%' ;
+	
+	姓名中包含M的员工信息：
+		select *from emp where ename like  '%M%' ;
+	姓名长度>6的员工信息：   >6  >=7
+	select *from emp where ename like  '_______%' ;
+
+	姓名中包含下划线的 
+	zhang_san
+	select *from emp where ename  like '%\_%'  escape '\' ;  
+
+	not  in 不能出现null：如果出现了null，结果为null
+	select *from emp where deptno not in(10,20,30,null) ;
+	
+
+select *from emp where deptno not in(10,20,30,null) ;
+
+select *from emp where deptno  != 10 and deptno  != 20 and deptno  != 30 and deptno  != null 
+
+
+select *from emp where mgr not in
+(select mgr from emp);
+
+
+排序：
+	order by 字段名|表达式|序号
+select *from emp order by sal desc ;
+
+select *from emp order by sal asc ;默认
+
+
+
+
+
+select *from emp order by sal+10000 desc ;
+null默认是最大值 
+
+
+多列排序 ：
+sal, hirdate
+
+
+
+
+函数：
+	单行函数：一次操作一行
+	多行函数 ：以此操作多行
+
+单行函数： 字符函数  数值函数  日期函数  转换函数 通用函数
+
+字符函数 ： lower   upper  initcap
+
+
+ dual ：单行单列  ->单行
+
+substr(str,begin,len)  ：从1开始数
+
+length字符数 / lengthb 字节数
+
+英文/数字
+
+如果中文/符号： 
+	utf-8编码格式下： 一个汉字/符号 占3个字节
+	gbk：  一个汉字/符号 占2个字节
+
+查看当前系统编码格式：
+	select * from nls_database_parameters ;
+
+insrt(str,substr) 
+
+lpad/rpad：填充
+
+trim：去掉任意字符
+
+replace
+
+
+数值函数:
+	round(数字,n位数):四舍五入  ，保留n位小数
+	trunc(数字,n位数):舍尾，保留n位小数
+
+mod()
+
+
+日期：
+	sysdate：当前时间
+	格式化： 日期-》字符
+
+
+	to_char(日期,格式)
+	
+
+	日期+-数字  （默认是天）
+
+
+
+	日期 - 日期 
+
+
+	计算员工工龄 ：入职日期 天 星期 月 年
+select ename ,hiredate , (sysdate - hiredate) , (sysdate - hiredate)/7 , (sysdate - hiredate)/30, (sysdate - hiredate)/365 from emp;
+
+
+months_between(日期1,日期2) ： 日期1-日期2
+
+
+add_months(日期,月数)：
+当前最大是第几天 last_day
+
+下一个星期n是哪一天next_day
+select next_day(sysdate,'星期五') from dual ;
+
+
+round
+trunc
+if
+else if
+else if.
+...
+else
+
+	通用函数 ：
+	a. nvl/nvl2
+	b. nullif(a,b)  :a=b,null ,否则返回
+	c coalesce :从左往后 找到第一个不为null的值
+	d.条件判断函数
+	decode(字段,条件1，返回值1，条件2，返回2，....,最后表达式)
+select ename,job , sal 涨前,  decode(job, 'PRESIDENT',sal+1000,'MANAGER',sal+500,sal+300) 涨后 FROM EMP;
+
+	case表达式
+	select ename ,job ,sal  涨前,case job 
+	when  'PRESIDENT' then sal+1000
+	when  'MANAGER' then sal+500
+	else  sal + 300 end
+       涨后 
+	from emp ; 
+    
+
+case 
+	when   ... then
+	when  ... then
+	else
+end ;
+
+	转换函数：
+		隐式转换/显式转换
+
+隐式转换:	
+字符-数字
+
+数字-字符
+
+字符-日期
+日期-字符
+
+
+显式转换：
+字符->字数
+select to_number('￥123,456.7',  'L999,999.9') from dual ;
+	
+字数->字符
+
+字符-日期
+
+日期-字符
+to_char
+
+
+多行函数：组函数、 聚合函数
+	count(*) ->  19
+
+
+求有几个部门
+count() 自动排除null
+	max/min/avg/sum
+
+
+分组：
+	各个部门总工资： 对部门分组 dept  10   20  30   40
+select deptno,avg(sal) from emp 【group by deptno】 ;
+
+select deptno,ename , avg(sal) from emp group by deptno ;
+
+10  	8000
+20	6000
+30	5000
+40	9000
+
+分组查询时，不在组函数(多行函数)中的列，必须在group by中。
+
+
+先根据部门分组 ，再根据job分组
+
+--各个部门中各个工作 的平均工资
+select deptno,job,avg(sal) from emp group by deptno ,job ;
+
+对行筛选用where
+
+
+对组进行筛选用Having
+
+可以在Having使用多行函数count  min  avg
+但是 不能在where中使用多行函数
+
+
+多表连接查询：
+	1.交叉连接（笛卡尔积）:所有情况的组合 ，不推荐使用
+select * from emp  ,dept  ;
+
+
+	2.内连接 ：多张表通过  相同字段进行匹配，只显示匹配成功的数据
+	a.
+		select * from emp e ,dept d
+		where e.deptno = d.deptno ;
+	b.
+		select * from emp e
+		inner join dept d
+		on e.deptno = d.deptno 
+	不等值连接（一般不用）
+	select * from emp e ,dept d
+		where e.deptno <= d.deptno ;
+	
+	3.外连接
+	左外连接：以左表为基准（左表数据全部显示），去匹配右表数据，如果匹配成功 则全部显示；匹配不成功，显示部分(无数据部分 用NULL填充)
+	a.（oracle独有）
+		select * from emp e ,dept d
+		where e.deptno = d.deptno(+) ;
+
+
+	b
+		select * from emp e
+		left outer join dept d
+		on e.deptno = d.deptno 
+
+
+	右外连接
+	右外连接：以右表为基准（右表数据全部显示），去匹配左表数据，如果匹配成功 则全部显示；匹配不成功，显示部分(无数据部分 用NULL填充)
+	a.（oracle独有）
+		select * from emp e ,dept d
+		where e.deptno(+) = d.deptno;
+
+
+	b
+		select * from emp e
+		right outer join dept d
+		on e.deptno = d.deptno 
+
+
+	全外连接 = 左外 + 右外连接 - 去重
+
+
+
+
+	自连接：将一张表 通过别名 “视为”不同的表
+
+
+	查询 员工姓名，以及 该员工的领导姓名
+	select e.ename ,b.ename from emp e,emp b
+	where e.mgr =b.empno;
+	//员工表的领导编号mgr = 领导表的 员工编号号empno
+
+
+	自连接 必须费性能：  emp -> e,b 
+
+优化？
+层次连接：
+	select level ,empno, ename ,mgr from emp 
+	connect by prior  empno=mgr
+	start with mgr is null
+	order by level ;
+	
+
+
+---
+子查询
+	比SCOTT工资高的 员工信息
+	1：scott的工资->5200
+	select SAL from emp where ename = 'SCOTT' ;
+
+	2.>5200的员工信息
+	select *from emp where sal >  ;
+->合二为一
+	
+	select *from emp  where sal > (select SAL from emp where ename = 'SCOTT' )
+
+	①子查询可以出现的位置：where、select、having、from ；不能写在group by 后面。
+	where
+	select： 单行列 （常量列）
+		select empno 第一列,ename 第二列,(select job from emp where empno =7369) 第三列 from emp ;
+	having:
+	查询最低工资比10号部门的最低工资高的部门编号。
+
+分组
+select deptno,min(sal) from emp  
+group by deptno
+having min(sal) > ( select min(sal) from emp where deptno =10  );
+
+	from:相当于修改了表结构
+	select * from emp;
+	select * from  ( select empno,ename, sal*12 from emp) ;
+	
+
+	②主查询和子查询 可以是，也可以不同同一张表
+
+	查询销售部的员工信息
+	1.现根据“销售部”查询 销售部的部门编号30
+	select deptno from dept where dname = 'DNAME' ;
+	2.根据部门编号30 查询员工信息
+	select * from emp where deptno = (select deptno from dept where dname = 'SALES' );
+
+	③子查询可以使用 单行操作符（=,<），多行操作符(in)
+	查询工资比30号部门中 任意其中一个员工高的（存在） 员工信息	
+
+	"只需要满足一个即可，存在一个就可以"->any
+	select *from emp where sal > any(select sal from emp) ;
+
+	select *from emp where sal > (select min(sal) from emp) ;
+
+
+	查询工资比30号部门中 全部员工高的（存在） 员工信息	
+		“所有、全部”->all
+	select *from emp where sal > all(select sal from emp) ;
+	select *from emp where sal > (select max(sal) from emp) ;
+
+	多行操作符:
+	查询销售部，财务部的员工信息
+select * from emp where deptno in
+(select deptno from dept where dname = 'SALES' or dname='ACCOUNTING');
+
+any:只要有一个  
+all：全部
+
+	④子查询中的null ：子查询的结果中不要有NULL！！
+select *from emp where mgr in (7566,7698);
+select *from emp where mgr in (7566,7698,NULL);
+
+in : = or = or 
+select *from emp where mgr =7566 or mgr=7698 or mgr = NULL;
+
+
+
+select *from emp where mgr not in (7566,7698,NULL);
+
+
+select *from emp where mgr not in (7566,7698,NULL);
+
+
+select *from emp where mgr not in (7566,7698,NULL);
+
+select *from emp where   mgr !=7566 and mgr!=7698 and mgr != NULL ;
+
+
+NULL:自身特性： 如果!=NULL则无法查询出任何数据 
+
+
+is  null
+is not null 
+
+
+
+=null
+!= null
+
+	查询 不是领导的员工信息（子查询时排除NULL）
+
+不是领导：判断empno 是否存在于mgr中
+select * from emp 
+where empno not in (select mgr from emp where mgr is not null )
+
+	⑤一般不在子查询中排序，除非TOP-N问题（分页）
+
+
+集合运算细节：
+		各个集合的列数、类型必须保持一致
+select empno ,ename from emp
+union
+select deptno,job from emp;
+
+
+--报表
+	查询总工资、各个部门的共工资、各个部门中各个工作的总工资
+
+
+
+各个部门中各个工作：
+	
+	select deptno,job,sum(sal)   from emp group by deptno,job ;
+
+10	sales	7000
+10	dev	8000
+20	xxx	6500
+
+各个部门的共工资、
+	select deptno,sum(sal)   from emp group by deptno ;
+
+总工资
+
+	select sum(sal)   from emp ;
+
+
+
+NULL：常量列
+select deptno,job ,sum(sal)   from emp group by deptno,job 
+union
+select deptno, NULL ,sum(sal)   from emp group by deptno 
+union
+select   NULL,NULL ,sum(sal)   from emp ;
+
+
+增强group by：rollup()
+
+select deptno,job ,sum(sal)   from emp group by rollup( deptno,job) ;
+
+
+group by  rollup( a,b)相当于：
+		group by a,b	
+		group by a,
+		group by null 
+
+
+---
+SQL语句的类型：
+DQL：数据查询语言select
+DML：数据操作语言,insert delete update   --》可以回退（可以进行事务操作）
+DDL ：数据定义语言  create/drop /truncate /alter table
+DCL:数据控制语言  grant, revoke
+
+
+DML:
+增加数据insert
+insert into 表名(字段名1,字段名2,...,) values(字段值1,字段值2,...)
+
+字段名和字段值一一对象：数据类型、个数、顺序
+
+
+insert into emp(EMPNO,ENAME,JOB,MGR,HIREDATE,SAL,COMM,DEPTNO)
+values(2222,'zhangsan','MANAGER',7788,'19-9月 -88',9998,1000,10);
+
+
+
+可以省略字段名：
+1.values插入的数据  必须是 完整的字段，并且顺序和默认顺序一致
+2.目前使用的SQL99标准，可以省略字段名（如果是SQL92则不能省略,MyCat）
+insert into emp
+values(3322,'LISI','MANAGER',7788,'19-9月 -88',9998,1000,10);
+
+
+如果插入的数据不完整，可以协商 部分字段名
+insert into emp(EMPNO,ENAME,JOB)
+values(444,'zhan','MANAGER');
+
+动态输入插入的值(&)  Scanner input = new Scanner(System.in);  input.next();
+
+
+insert into emp(EMPNO,ENAME,JOB)
+values(&empno,&xxx,&job);
+如果是字符、日期： 仍然需要加'   '
+
+
+
+insert into emp(EMPNO,ENAME,&otherName)
+values('5555','kkk',&otherValue);
+
+
+--
+批量插入数据
+	1.创建新表(批量插入之前不存在)
+	emp ->复制 mytab
+
+	create table mytab 
+	as
+	select *from emp;
+
+
+create table mytab2
+as
+select empno,ename ,job from emp;
+
+
+create table mytab3
+as
+select empno,ename ,job from emp
+where sal < 6000;
+	
+	还可以用于快速创建表结构：
+	mytab4 -> emp 
+
+	create table mytab4 
+	as
+	select *from emp where 1=0 ;
+
+	2.在旧表中插入(已存在的表)
+		insert into mytab4(empno,ename,sal)
+		select empno,ename ,sal from emp;
+
+	3. begin ...end  / 
+
+begin
+	insert into emp
+values(1221,'LISI','MANAGER',7788,'19-9月 -88',9998,1000,10);
+	insert into emp
+values(1223,'LISI','MANAGER',7788,'19-9月 -88',9998,1000,10);
+end ;
+
+
+	海量数据： 数据泵 \  SQL Loader\ 外部表
+
+---
+删除delete
+delete from 表名 ;
+delete from emp  where 	empno >7900;
+	1.加where
+	2. delete  from 表名 ;
+
+全表删除：
+1.	delete from emp  ; 可以回退
+	truncate table emp  ;不能回退
+		原因： DML：insert  update  delete  ->可以回退
+		
+2.测试二者执行时间	
+	打开执行时间：
+	set timing on/off
+对于少量数据： delete 效率高  ，一行一行删除
+对于海量数据：truncate效率高 ，  a.drop table 丢弃整张表 ，b.重新创建表
+
+3.delete支持闪回， truncate不支持闪回
+4.delete不会释放空间 （换两个地方存储数据[undo空间]），trucante会
+5.delete会产生碎片，trunate不会
+	如果碎片太多，需要整理碎片：a.  alter table 表名 move ;  b.导出导入
+
+
+---
+
+update/delete :where
+修改update
+
+
+update 表名 set 字段名1=字段名1  , 字段名2=字段名2,字段名3=字段名3...  where ...
+
+update emp set ename = 'x' ,job ='y'  where empno>7900;
+
+		
+
+--DDL： create/drop/truncate/alter
+创建表
+ create table mytab6 
+(
+   id  number ,
+   name varchar(10),
+   age number
+)
+;
+注意事项：
+	1.权限和空间问题
+	2.表名的规定：
+	a.必须以字母开头
+	b.表名只能包含： 大小写字母、数字、_、$、#
+	c.长度  1-30个字符
+	d.不能与数据库中其他对象重名(表，视图、索引、触发器、存储过程....)
+	e.不能与 保留字重名
+	查看保留字：DBA账户
+	sqlplus / as sysdba
+	查看保留字:
+		select *from v$reserved_words order by keyword asc ;
+
+	设置某个字段的宽度：
+	字符
+		col KEYWORD for a10
+	数字
+	col  LENGTH for 9999
+
+修改表:
+	a.追加新列
+
+	alter table mytab6 add myother varchar2(10) ;
+
+	b.修改列
+		修改列的长度
+			alter table mytab6 modify  myother varchar2(20) ;
+		修改列的类型
+
+			alter table mytab6 modify  myother number ;
+		注意： blob/clob不能修改  ->先删除此列，重新追加
+
+			alter table mytab6 add myother2 blob ;
+
+			alter table mytab6 modify  myother2 number ;
+
+	c删除列
+		alter table mytab6 drop column myother2 ;
+
+	d重命名列
+	alter table mytab6 rename column myother to myother3 ;
+
+删除表
+	select *from tab; 表以及回收站中的表
+	drop table mytab6;  -->放在了回收站
+	查看回收站		
+	show recyclebin;
+
+	清空回收站
+		purge recyclebin;
+	
+	还原回收站
+		闪回
+
+删除表 并清空： drop table test02 purge ;
+
+
+
+
+
+
+
+

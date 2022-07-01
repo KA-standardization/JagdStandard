@@ -1,0 +1,27 @@
+# RocketMQ存储篇——事务消息相关的文件
+
+在RocketMQ-3.1.9版本中，有TransactionStateService类，用于存储每条事务消息的状态。在该类中有两个成员变量tranRedoLog:ConsumeQueue和tranStateTable: MapedFileQueue,其中tranRedoLog变量用于事务状态的Redolog，当进程意外宕掉，可通过redolog恢复所有事务的状态，tranStateTable变量用于存储事务消息的事务状态。
+
+## 1 事务消息状态文件
+
+tranStateTable变量对应的物理文件的存储路径默认为$HOME/store /transaction/statetable/{fileName}，每个文件由2000000条数据组成，每条数据总共有24个字节，其结构如下，因此每个文件的大小为2000000*24； 
+![这里写图片描述](/home/jackiechan/Downloads/java/document/document-md/千锋JavaEE课程大纲/第四阶段/分布式知识点/rocketmq/mdpic/1.png) 
+每个statetable文件的名称fileName，名字长度为20位，左边补零，剩余为起始偏移量；比如00000000000000000000代表了第一个文件，起始偏移量为0，文件大小为2000000*24，当第一个文件满之后创建的第二个文件的名字为00000000000048000000，起始偏移量为48000000，以此类推，第三个文件名字为00000000000096000000，起始偏移量为96000000，消息存储的时候会顺序写入文件，当文件满了，写入下一个文件。
+
+## 2 事务消息REDO日志文件
+
+tranRedoLog变量对应的物理文件的存储路径默认为$HOME/store /transaction/redolog/TRANSACTION_REDOLOG_TOPIC_XXXX/0/{fileName}，每个文件由2000000条数据组成，每条数据总共有20个字节，因此每个文件的大小为2000000*20，每条数据的结构与ConsumeQueue文件一样，相当于topic值等于“TRANSACTION_REDOLOG_TOPIC_XXXX”，queueId等于0。 
+每个redolog文件的名称fileName，名字长度为20位，左边补零，剩余为起始偏移量；比如00000000000000000000代表了第一个文件，起始偏移量为0，文件大小为200W*20，当第一个文件满之后创建的第二个文件的名字为00000000000040000000，起始偏移量为40000000，以此类推，第三个文件名字为00000000000080000000，起始偏移量为80000000，消息存储的时候会顺序写入文件，当文件满了，写入下一个文件。
+
+## 3 定期向Producer回查事务消息的最新状态
+
+在Broker启动TransactionStateService时，为每个tranStateTable文件创建了一个定时任务，该定时任务是每隔1分钟遍历一遍文件中的所有消息，对于处于PREPARED状态的事务消息，向Producer发送回查请求获取最新的事务状态。 
+为每个tranStateTable文件创建的定时任务的大致逻辑如下： 
+1、检查该Broker是否为备用，若是则跳出本次回查，不进行回查操作； 
+2、若未开启回查功能（即MessageStoreConfig. CheckTransactionMessageEnable为false）则跳出本次回查，不进行回查操作； 
+3、从tranStateTable文件的开头位置遍历每个消息，若该消息的事务状态不是PREPARED则继续遍历下一个消息，即只回查状态为PREPARED的事务消息；若该消息存储的时间距离当前时间小于了间隔时间（由参数MessageStoreConfig.checkTransactionMessageAtleastInterval设置，默认是60秒）则跳出本次回查； 
+4、调用DefaultTransactionCheckExecuter.gotoCheck(int producerGroupHashCode, long tranStateTableOffset, long commitLogOffset, int msgSize)方法，其中tranStateTableOffset为该消息在tranStateTable文件中的消息位置偏移量，向Producer发送CHECK_TRANSACTION_STATE请求码，大致逻辑如下： 
+4.1）根据producerGroupHashCode从ProducerManager. hashcodeChannelTable变量中获取渠道信息ClientChannelInfo对象； 
+4.2）以commitLogOffset从CommitLog中查询事务消息内容，封装成SelectMapedBufferResult对象； 
+4.3）构建CheckTransactionStateRequestHeader对象，其中该对象的tranStateTableOffset变量等于入参tranStateTableOffset值； 
+4.4）调用Broker2Client.checkProducerTransactionState(Channel channel, CheckTransactionStateRequestHeader requestHeader, SelectMapedBufferResult selectMapedBufferResult)方法向Producer发送CHECK_TRANSACTION_STATE请求码，将事务消息内容也一发给了Producer端；

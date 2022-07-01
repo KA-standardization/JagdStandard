@@ -1,0 +1,1362 @@
+
+序列：模拟自增
+
+本质就是内存中的数组  （20）
+[1,2,3...,20] [21,22,...,40]
+create sequence 序列名
+increment by 步长
+start with 起始值
+maxvalue | nomaxvalue
+minvalue | nominvalue
+cycle | nocycle
+cache n | no cache ;
+
+查看序列
+select *from user_sequences ;
+
+
+
+
+create sequence myseq;
+
+序列有2个属性：
+nextval:下一个值
+currval:当前值
+	
+	1	2	3	4	5	....
+*
+
+序列会接着上一次的值 继续使用。
+
+
+
+
+insert into person values(myseq.nextval, 'ls4');
+insert into person values(myseq.nextval, 'ws4');
+insert into person values(myseq.nextval, 'zs4');
+
+
+
+create sequence myseq1
+increment by 2
+start with 1000
+ ;
+
+
+create sequence myseq2
+increment by 2
+start with 1
+maxvalue 9
+minvalue 1
+cycle 
+cache 3  ;
+
+[1	3	5]	7	9
+cache元素的个数 <= 循环元素个数
+
+
+insert into person values(myseq2.nextval, 'xx');
+循环序列 不能用于给 主键/唯一约束的键 赋值
+
+
+裂缝： [1,2,3...,20] [21,]
+断电、异常、回滚、多表使用同一个序列 ……
+
+1 2 3 4 5 
+
+A  1 2 4
+B  3 
+
+修改：只对修改之后的 操作有效
+alter sequence myseq
+increment by 2
+;
+
+
+删除序列 drop sequence 序列名 ;
+
+ drop sequence myseq2;
+
+索引：
+  类似于书的目录
+	索引类型 默认B树索引（默认）、位图索引
+
+
+create 类型 名字
+
+create index 索引名
+
+create index myindex  on emp(deptno) ;
+主键默认 就是索引
+
+
+create index myindex  on emp(deptno ,sal   ) ;
+
+
+什么时候 适合建立索引：
+	数据集中的列,经常在where中使用的列， 数据量大
+		数据集中的列：主键列(empno,id)不集中，但是因为 会被频繁使用 ，因此也适合建索引
+
+empno :
+	1
+	2	
+	3
+
+empno,ename ,job,sal......20
+
+
+select *from emp where age = 23 ;
+
+字段：字典
+
+
+
+
+deptno :
+1000   -> 10
+
+
+empno :
+	1
+	2
+	3
+
+
+删除索引
+drop index 索引名
+drop index myindex ;
+
+
+同义词（别名）
+
+数据库对象（表 视图 索引...）起别名 （默认私有/专用）
+
+
+hr :employees;
+
+ 查看其它用户的表，报错“表或视图不存在”:可能是权限不足
+
+授权：
+grant xxx  to 用户名;
+	grant select on hr.employees  to scott;
+
+select count(*) from hr.employees ;
+
+起别名：select count(*) from hremp ;
+
+grant create synonym to scott ;
+
+	create synonym  hremp for hr.employees ;
+
+revoke xxx from 用户名;
+
+
+创建公有同义词
+	
+	create public synonym  hremp2 for hr.employees ;
+
+公有同义词的操作（创建、删除） 一般建议由管理员操作。。
+
+
+drop [public ] sysnonym 同义词名
+
+
+
+
+PLSQL：可以对SQL进行编程
+
+开发工具
+	plsql developer
+	oracle sql developer
+
+plsql：
+declare
+	变量、常量、光标（游标）、例外（自定义异常）
+begin
+	...
+	exception 
+		...
+end ;
+
+示例
+set serveroutput on ;
+declare
+	--变量、常量、光标（游标）、例外（自定义异常）
+    psex char(3) := '男' ;
+    pname varchar2(10) ;
+begin
+	
+    select ename into pname from emp where empno =7499 ;
+    dbms_output.put_line('hello world:' || psex ||'---' || pname);
+    
+end ;
+
+pname emp.ename%type ;--引用型变量，推荐
+
+
+记录型变量:java 对象,可以用于同时保存多个变量值
+
+
+
+java 对象
+Person per = new Person(1,'zs',28,11...,...);
+per.name
+
+示例
+set serveroutput on ;
+declare
+	--变量、常量、光标（游标）、例外（自定义异常）
+   emp_info emp%rowtype ;
+    
+begin
+        select * into  emp_info from   emp where empno =7788;
+   
+        dbms_output.put_line( emp_info.empno  || '---' ||  emp_info.ename ||'--- '||  emp_info.job);
+    
+end ;
+
+
+
+
+if:
+1.
+if 条件  then ... ;
+end if;
+
+2.
+if 条件  then ...;
+else   ....
+
+end if;
+
+3.
+if 条件 then ..;
+elsif 条件 then ...
+else ..
+end if ;
+
+
+
+set serveroutput on ;
+declare
+	pnum number := 3 ;
+    
+begin
+    if pnum=1   then   dbms_output.put_line('一');
+    elsif pnum=2  then   dbms_output.put_line('二');
+    else dbms_output.put_line('其他');
+    end if ;   
+    
+end ;
+
+
+循环while  do..while  for
+
+
+do{}while(i<5)  
+
+1.
+while 条件
+loop 
+...
+end loop ;
+
+2.
+loop 
+...
+   exit when i>5 ;
+end loop;
+
+
+3
+for  i in  1 .. 10
+loop
+
+..
+end loop ;
+
+
+示例
+set serveroutput on ;
+
+
+declare
+	    
+begin
+  for x in 1 .. 5
+    loop
+            dbms_output.put_line(x);
+    end loop ;
+end ;
+
+
+
+--1-5之和
+declare
+	    pnum number:=1 ;
+        psum number:= 0 ;
+begin
+        loop
+            exit when pnum >5 ;
+            psum := psum + pnum ; --sum+= i ;
+            pnum := pnum +1 ;
+        end loop ;
+        dbms_output.put_line(psum);
+end ;
+
+
+
+游标（光标）cursor  ：集合
+
+语法：
+	定义
+	cursor 光标名(参数列表)
+	is
+	select ....
+
+
+光标的属性
+	%isopen  	%rowcount	%found	%notfound 
+
+
+
+
+--查询并打印全部员工的姓名、薪水
+set serveroutput on ;
+declare
+	--变量、常量、光标（游标）、例外（自定义异常）
+  cursor cemp  is select ename ,sal from emp ;
+  pename emp.ename%type ; 
+  psal emp.sal%type ;
+  
+begin
+      open cemp ;--1.打开光标
+      loop    --2.循环 准备获取每一行数据
+         fetch  cemp  into pename,psal ;--3.一行一行获取光标的值
+         exit when cemp%notfound ;
+         
+         dbms_output.put_line(pename||'的工资是：'||psal);
+         
+      end loop ;
+      
+      
+      close cemp ;--关闭光标
+    
+end ;
+
+
+--总工资： president 1000   ，manager 800， 其他 400
+
+set serveroutput on ;
+declare
+    cursor cemp is select empno, job from emp ;
+    pempno emp.empno%type ;
+    pjob emp.job%type ;
+ 
+begin
+   open cemp ;
+   loop 
+    fetch cemp into pempno,pjob ;
+    exit when cemp%notfound ;
+    
+    --判断职位
+    if pjob = 'PRESIDENT'
+        then update emp set sal = sal +1000 where empno=pempno ;
+    elsif  pjob = 'MANAGER'
+        then update emp set sal = sal +800 where empno=pempno ;
+    else 
+        update emp set sal = sal +400 where empno=pempno ;
+    end if ;    
+        
+        
+   end loop ;
+    dbms_output.put_line('ok');
+   
+   close cemp ;
+   commit ;  --ACID oracle read commit ，一边(终端)不提交，另一个访问不到
+    
+end ;
+
+
+
+
+
+--查询某个部门的员工姓名，带参数的光标
+
+
+
+例外（异常）
+系统例外
+	no_data_found 	
+	too_many_rows 
+	zero_Divide
+	value_error:算术或转换错误
+	timeout_on_resource：资源等待超时
+
+set serveroutput on ;
+declare 
+   pnum number ;
+   
+begin 
+
+   pnum := 1/0 ;
+   
+   exception 
+     when zero_divide then dbms_output.put_line('0不能作为除数');
+     when too_many_rows then dbms_output.put_line('行数太多');
+     when others then dbms_output.put_line('其他例外..');
+end ;
+
+
+
+
+自定义例外
+
+MyException 
+
+
+try{
+	if(xxx) throw new MyException() ;
+
+}catch(){}
+catch(){}
+catch(){}
+
+
+set serveroutput on ;
+declare 
+  myexc  exception ;
+  pnum number := 1 ;
+   
+begin 
+    if pnum =1 then raise  myexc ;
+    end if;
+    exception 
+ 	
+end ;
+
+
+
+是否存在编号50的部门，如果不存在 ，抛出一个例外；如果存在，将该部门的员工姓名 打印。。
+
+set serveroutput on ;
+declare 
+  cursor cemp(dno number) is select ename from emp where deptno = dno ;
+   pename emp.ename%type ;
+   no_emp_found exception ;
+   
+begin 
+   open cemp(50);
+     fetch cemp into pename ;
+    if cemp%notfound then  raise no_emp_found ;
+    
+    else 
+           loop
+                  exit when cemp%notfound ;
+                  fetch cemp into pename ;
+           end loop ;
+    
+    
+    end if ;
+  
+        
+    exception  
+           when no_emp_found then dbms_output.put_line('自定义例外,没有此号部门...');
+  
+   close cemp;
+   
+   
+end ;
+
+
+
+
+
+1.统计每年的入职人数
+sql: 
+	select to_char(HIREDATE,'yyyy' ),count(1) from emp group by to_char(HIREDATE,'yyyy' );
+plsql：
+	
+java:每个人数据全获取， 判断入职年份， 如果1980  , +1  ;+1
+set serveroutput on ;
+declare 
+ cursor cemp is select to_char(HIREDATE,'yyyy' ) from emp ;
+  phiredate varchar(4)  ;
+  
+   count80 number:=0 ;
+   count81 number:=0 ;
+   count82 number:=0 ;
+   count87 number:=0 ;
+  
+begin 
+  open cemp ;
+    loop
+            fetch cemp into phiredate ;
+            exit when cemp%notfound ;
+            if phiredate = '1980' then count80 := count80+1 ;
+            elsif phiredate = '1981' then count81 := count81+1 ;
+            elsif phiredate = '1982' then count82 := count82+1 ;
+            else   count87 := count87+1 ;
+            end if ;
+    end loop ;
+  
+  close cemp ;
+   
+   dbms_output.put_line('1980'||count80);
+   dbms_output.put_line('1981'||count81);
+   dbms_output.put_line('1982'||count82);
+   dbms_output.put_line('1987'||count87);
+   dbms_output.put_line('总人数'||(count80+count81+count82+count87));
+end ;
+
+
+2.涨工资。 每个10%， 按入职时间顺序涨工资，且涨后的总工资不能超过5万。计算 需要涨工资的人个数 以及涨后的工资总额。
+
+set serveroutput on ;
+
+declare 
+ cursor cemp is select empno,sal from emp order by hiredate asc ;
+ pempno emp.empno%type ;
+ psal emp.sal%type ;
+ countEmp number :=0 ;
+ salTotal number :=0 ;
+  
+begin 
+    OPEN cemp ;
+    loop 
+        
+        --exit when salTotal > 50000 ;--  5.1
+        
+        fetch cemp into pempno ,psal ;
+        exit when cemp%notfound ;
+        
+        if salTotal + psal*1.1 < 50000
+            --涨工资
+           then  update emp set sal = sal*1.1 where empno = pempno;
+           countEmp := countEmp +1;
+            --salTotal: 50  ,51 
+            salTotal := salTotal + psal*1.1 ;  --psal 是变量， sal是表的字段
+        else 
+            dbms_output.put_line('人数'||countEmp ||'--'|| '涨后的总额'||salTotal);
+        
+            exit  ;
+        
+        end if ;
+    
+    end loop ;
+ 
+    close cemp ;
+
+end ;
+
+
+3.统计各部门的工资情况。格式如下
+部门编号		<2000的人数		2000-4000人数		>4000人数	工资总额
+		count1			count2			count3		salTotal
+		
+光标保存各个部门：10  20  30
+set serveroutput on ;
+
+declare 
+    cursor cdept is select deptno from dept ;--10  20 30 40
+    pdeptno dept.deptno%type ;
+    
+    --部门中员工的所有工资
+    cursor cemp(dno number) is select sal from emp where deptno = dno;
+    psal emp.sal%type ;
+    
+    count1 number;
+    count2 number;
+    count3 number ;
+    
+    --各部门工资总额
+    salTotal number ;
+    
+    
+begin 
+    open  cdept;
+    loop  --外层循环：遍历所有的部门 编号；；内层循环：遍历某个部门的所有工资
+        fetch cdept into pdeptno ;
+        exit when cdept%notfound ;
+        count1 :=0 ;
+        count2 :=0 ;
+        count3 :=0 ;
+        select sum(sal) into salTotal from emp where deptno =pdeptno ;
+        open  cemp(pdeptno) ;
+            loop
+                fetch cemp into psal ;
+                exit when cemp%notfound ;
+                if psal<2000 then count1:=count1+1;
+                elsif psal>=2000 and psal<4000 then  count2:=count2+1;
+                else count3:= count3+1 ;
+                end if ;
+                
+            end loop ;
+        
+        
+        close cemp ;
+        dbms_output.put_line(pdeptno||' '||count1||' '||count2||' '||count3||' '||salTotal);
+        
+        
+    end loop;
+    
+    close cdept;
+
+
+
+
+
+
+end ;
+
+public void hellworld()
+{
+	System.out.println("hello world")
+}
+
+存储过程/存储函数
+	方法\函数
+
+存储过程:
+create or reaplace procedure 过程名(参数列表)
+as
+	PLSQL语句 ；
+具体语法：
+
+无参
+
+create  procedure 过程名(参数列表)
+
+as
+begin 
+
+end ;
+
+
+示例
+set serveroutput on ;
+
+create or replace procedure test1
+as 
+    pnum number:=10 ;
+begin
+    dbms_output.put_line('hello:'||pnum);
+end ;
+
+
+调用
+--exec test1();
+begin
+    test1();
+    test1();
+    test1();
+end ;
+
+
+有参：
+	输入参数in
+	输出参数out  （返回值）
+
+--传入一个员工编号，给该员工涨500
+create or replace procedure raiseSalary(pid in number) 
+as 
+    psal emp.sal%type ;
+begin 
+    select sal into psal from emp where empno=pid ;
+    update emp set sal = sal + 500 where empno=pid ;
+    dbms_output.put_line(psal || '--'||psal+500);
+end ;
+
+
+
+
+
+create or replace procedure raiseSalary(pid in number ,xxx out xxx ) 
+.... 
+
+
+存储函数:与存储过程的最大区别： 必须有return 
+	in   out
+create [or replace] function 函数名(参数列表)
+	return 返回值类型 
+as
+
+begin 
+	..
+	return  返回值
+end ;
+
+
+--查询某个员工的年收入
+
+
+
+null 的运算结果 ->null
+
+
+
+create or replace function getTotalSal(pid in number) 
+    return number 
+as 
+    empSal emp.sal%type ;
+    empComm emp.comm%type ;
+begin 
+    select sal ,comm into empSal,empComm from emp where empno = pid ;
+    dbms_output.put_line( empSal*12+  nvl( empComm,0));
+    return empSal*12+  nvl( empComm,0) ;
+end ;
+
+调试
+ grant DEBUG CONNECT SESSION  to scott
+
+ grant DEBUG ANY PROCEDURE to scott;
+
+存储过程/存储函数？ 
+建议:只有一个返回值  存储函数  return 
+没有、多个返回值 ，存储过程  out out  out 
+
+
+返回值：
+	
+存储函数 ：out \ return 
+
+存储过程：out 
+
+
+
+
+存储过程： 传入员工编号，返回姓名、工作
+
+--注意编写的位置:工作台
+
+--存储过程： 传入员工编号，返回姓名、工作
+create or replace procedure getEmpInfo(pempno in emp.empno%type, pename out emp.ename%type, pjob out emp.job%type )
+as
+   
+begin 
+    select ename  ,job into pename ,pjob from emp where empno = pempno;
+end ;
+
+
+--存储函数
+create or replace FUNCTION getEmpFuncInfo2222(pempno in emp.empno%type, pename out emp.ename%type, pjob out emp.job%type )
+    return varchar2 
+as
+   
+begin 
+    select ename  ,job into pename ,pjob from emp where empno = pempno;
+    return null ;
+end ;
+
+
+
+
+-查询某个部门的所有员工信息
+	 select * from emp where deptno = 10 ;
+光标来保存集合数据 ：out
+
+返回值/输出参数如果是光标类型： 包
+
+包 = 包头+包体
+
+public void aa() 包头
+{
+	包体
+
+}
+
+
+包头：右键程序包：
+create or replace PACKAGE MYPACKAGE 
+
+AS 
+    type empcursor is ref cursor  ;
+    procedure queryEmpList(dno in number , empList out empcursor) ;
+    
+ 
+
+END MYPACKAGE;
+
+
+包体： 右键包- 创建体
+
+CREATE OR REPLACE
+PACKAGE BODY MYPACKAGE AS
+
+  procedure queryEmpList(dno in number , empList out empcursor)  AS
+  BEGIN
+        open empList for 
+        select *from emp where deptno = dno;
+        
+  END queryEmpList;
+
+END MYPACKAGE;
+验证：desc mypackage ;
+
+SQLdeveloper无法执行测试package 
+
+触发器：
+	与表相关联的，PLSQL程序
+
+	当执行DML，自动执行触发器
+
+
+语法
+	create or replace trigger 触发器名
+	before|after
+	delete|insert |update [of 列名]
+	on 表
+	for each row [ when (条件)]
+	...plsql 代码
+	/
+
+当插入一个数据时，自动打印“成功”
+
+
+select *from student;
+
+create trigger logStudent
+after 
+insert 
+on student
+declare 
+begin 
+    dbms_output.put_line('增加成功');
+end ;
+/
+
+
+测试
+set serveroutput on ;
+insert into student(stuno,stuname,stuage) values(22,'zs22',222);
+
+set serveroutput on ;
+create trigger logupdateStudent
+after 
+update of stuname
+on student
+declare
+
+begin
+    dbms_output.put_line('您修改了姓名...');
+end ;
+/
+
+
+
+无论修改多少行，触发器只执行一次。
+
+原因：默认是 语句级触发器，作用于表，只执行一次。
+
+
+语句级触发器：
+	作用于表，只执行一次。
+行级触发器：
+	作用于每一行，每满足一次条件  都执行一次；可以执行多次触发器
+	for each row [when 条件]
+
+
+行级触发器：
+	create or replace trigger logaddStudent
+	after
+	insert
+	on student
+	for each row
+	declare
+    begin
+        dbms_output.put_line('增加成功！');
+    end;
+    
+	/
+
+
+insert into student(stuno,stuname)
+select empno,ename from emp;
+
+
+--不能在非工作时间插入员工信息
+周一 - 周五   9：00 - 18:00
+
+
+
+
+星期几：select to_char(sysdate, 'day') from dual;
+
+小时：select to_char(sysdate, 'hh24') from dual;
+
+
+create or replace trigger securityStudent
+before  insert 
+on student
+begin
+        --校验  --不正常
+        if    to_char(sysdate,'day')  in ('星期四','星期日')  or     to_number( to_char(sysdate,'hh24') ) not between 9 and 18
+        then 
+            --禁止插入，例外
+            raise_application_error(-20001,'禁止非工作时间插入学生'  );
+        end if ;
+end ;
+/
+
+
+使用触发器确保：涨工资，涨后的工资 不能少于涨前的工资
+
+
+
+create or replace trigger checkSalary
+before update 
+on emp 
+for each row 
+begin   --new  old
+    if :new.sal < :old.sal  --3000 - 5000 
+    then 
+    raise_application_error(-20002 , '涨后的工资不能小于涨前的！');
+    end if ;
+end ;
+/
+
+
+raise_application_error中编号的范围   -20000  -  -20999
+
+
+数据校验:  web前端  onsubmit   onblur -->   控制器 Servlet/Spring MVC  if() 
+		->数据库 触发器
+
+
+数据字典（了解） ：元数据，  数据库的各种描述信息，系统自带很多表
+	dictionary、user_objects 、user_tables、user_tab_columns ;
+	
+		all_tables
+
+数据字典的命名规范：
+	user：当前用户能够使用的
+	all：系统中全部的
+	dba:管理员
+	v$:性能相关
+
+	user_sequences ;
+	user_synonyms;
+	user_关键字s;
+	user_tab_comments 
+	all_tab_comments 
+
+
+DBCA（已管理员身份运行）
+
+
+
+
+数据仓库：分析数据用的，只查询  不DML。
+
+默认密码
+sys  change_on_install
+system manager
+scott tiger
+
+
+ASM：外设磁盘
+
+快速恢复区 flash_recovery_area ：闪回区大小   3G
+
+闪回去越大 ，可以恢复的数据越多，但是  会影响性能
+
+备份：
+	热备份 ：联机备份 ，归档模式
+	冷备份 ： 脱机备份
+
+
+示例方案： scott   sh   hr 
+制定脚本：  在数据库创建完毕时，自动执行的脚本
+
+insert into ....   ->  aa.sql
+
+
+连接模式
+	专用服务器  
+	共享服务器 
+
+
+监听出错：
+	监听程序  -》忽略错误，原因：在创建第一个数据库时  已经有了监听器。因此不用在创建新的监听器
+
+假设：报错监听失败。
+
+
+维护监听器：  Net  Manager
+
+
+https://localhost:1158/em
+
+
+sqlplus scott/tiger
+
+sqlplus scott/tiger@sid
+
+更改默认regedit中修改
+
+计算机\HKEY_LOCAL_MACHINE\SOFTWARE\ORACLE\KEY_OraDb11g_home1 :ORACLE_SID  
+
+
+闪回
+	作用：  将错误的DML 并且commit， 进行撤销  （撤销已提交的事务）；
+		还原删除的表 drop table xxx ;
+		获取表上的历史记录
+		
+	类型：
+		闪回表中的数据：将表中的数据  回退到历史的某一个点
+		闪回删除的表：还原表
+		闪回事务查询： undo_sql
+		闪回数据库（了解）：将数据库 中的数据  回退到历史的某一个点
+	  	闪回归档日志（了解）
+
+
+1.闪回表中的数据：将表中的数据  回退到历史的某一个点
+		
+必须sys
+show parameter undo;
+		
+假设闪存区3G
+undo_retention：900 ，超过闪存区的数据 必须在900秒内闪回
+
+alter system set undo_retention=1200 scope = both ;
+both| memory 当前数据库有效，重启无效| spfile  当前数据库无效，重启有效
+
+
+	闪回：时间点SCN
+
+	闪回：必须知道 回退的时间点 或者SCN  ,时间->SCN
+
+时间->SCN ：
+	select  timestamp_to_scn(sysdate) scn from dual ; 
+	
+flashback
+create table testfb 
+(
+id number ,
+name varchar(10)
+);
+
+insert into testfb values(1,'a');
+insert into testfb values(2,'b');
+insert into testfb values(1,'c');
+commit ;
+
+此时SCN:3607794
+
+删除id=1
+commit ;
+
+闪回：
+flashback table testfb  to scn 3607794 ;
+
+如果某个用户在闪回时权限不足，需要授权：
+sys:
+	grant flashback any table to scott;
+
+闪回 可以跨越commit 回退。
+
+
+
+
+
+想：
+3天
+1commit  commit   commit
+			"2019-8-8  20：00" -> date ..  ->scn
+
+2commit
+3commit
+
+要闪回：必须知道 时间点
+
+2.闪回删除的表（还原oracle回收站中的表 ）
+		
+	查看回收站
+		show recyclebin;
+	默认情况下：如果回收站中重名，闪回的是最近一次删除的表
+	如果闪回的表 和库中目前的表 重名 ，则冲突，必须 重命名rename to..
+
+	flashback table  表名  to before drop ;
+	flashback table  "回收站中的名字"  to before drop ;
+
+	清空回收站 purge recyclebin;
+
+
+	彻底删除某一张表（不过回收站）： drop table testfb2  purge ;
+
+	普通用户： 删除->回收站 ->  清空|还原
+
+	管理员：删除表 不过回收站，直接彻底删除。
+
+	是否闪回表中的触发器：
+		A(触发器) -> 删除->回收站  ->闪回表时 是否连同触发器一起闪回
+
+
+
+flashback table 表明 to before drop  [rename to 新表名] enable|disable（默认） triggers ;
+
+create table testfb4
+(
+id number ,
+name varchar(10)
+);
+
+flashback table enable triggers  testfb4   to before drop  ;
+
+
+
+
+3闪回事务查询
+	区别：
+		闪回dml+commit：的不同之处：  
+
+				闪回dml+commit ： 依赖时间  ->scn
+				闪回事务：依赖的是 提交次数（undo_sql）
+a.提交次数 ？ 闪回版本查询(事务编号)
+
+
+
+坑： （ bug）dml操作数据时  不要太快（批量复制 ）
+凡是能够撤销的 事务，都必须提前开日日志：在sys中执行alter database add supplemental log data;
+
+
+
+
+create table tb_version(id number,name varchar2(10)) ;
+
+insert into tb_version values(11,'a1');
+insert into tb_version values(12,'a1');
+insert into tb_version values(13,'a1');
+commit;
+
+insert into tb_version values(21,'b1');
+insert into tb_version values(22,'a1');
+insert into tb_version values(23,'a1');
+commit;
+
+insert into tb_version values(31,'c1');
+insert into tb_version values(32,'a1');
+insert into tb_version values(33,'a1');
+commit;
+
+--bug  ：如果插入数据且commit 速度太快，可能会丢失 事务信息
+
+闪回版本查询: 
+	版本信息：伪列
+select  id,name ,versions_xid,versions_operation,versions_starttime,versions_endtime from tb_version versions between timestamp  minvalue   and maxvalue;
+
+
+
+"2019-05-19" ->timestamp 类型
+"2019-05-21"
+
+
+select  id,name,versions_xid,versions_operation,versions_starttime,versions_endtime from tb_version versions between timestamp  minvalue   and maxvalue ;
+
+
+
+事务闪回的核心：  查询undo_sql  ，执行即可
+需要授权： grant select any transaction to scott;
+
+undo_sql存在于表： desc flashback_transaction_query;
+查询undo_sql前 需要在sys中修改设置：alter database add supplemental log data;
+
+
+select OPERATION ,UNDO_SQL from  flashback_transaction_query   where  XID  ='050013005F080000';
+
+select  XID,OPERATION ,UNDO_SQL from  flashback_transaction_query ;
+
+
+导入导出
+	命令行cmd
+导出：exp  
+		exp不是sql语句，是一个工具，直接在cmd中执行
+	a.表方式 
+	exp scott/tiger@127.0.0.1/ORCL file=d:/back/bk.dmp log=d:/back/log.log tables=emp,dept
+
+	b.用户方式：
+	exp scott/tiger@127.0.0.1/ORCL file=d:/back/bk2.dmp log=d:/back/log2.log 
+	
+	c.全库方式:DBA角色的   （sys  / system ）
+	exp system/manager@127.0.0.1/ORCL file=d:/back/bk2.dmp log=d:/back/log2.log full=y
+
+
+
+导入
+	a.表方式 
+	imp hr/hr@127.0.0.1/ORCL  file=d:/back/bk.dmp log=d:/back/log.log tables=emp,dept  fromuser=scott touser=hr commit=y ignore=y 
+
+	b.用户方式：(DBA角色)
+	imp system/manager@127.0.0.1/ORCL  file=d:/back/bk2.dmp log=d:/back/log2.log   fromuser=scott touser=hr commit=y ignore=y 
+
+
+	c.全库方式:
+imp system/manager@127.0.0.1/ORCL  file=d:/back/bk2.dmp log=d:/back/log2.log    commit=y ignore=y destroy=y
+
+向导模式
+exp
+imp
+
+分布式数据库：
+	大->小 
+	物理上分开存放，逻辑上一个整体
+	独立性：客户端不必关心数据如何分割和存储 ，只需要关心数据本身即可
+
+	分布式数据库三种操作：
+	a.本地操作
+	b.远程操作 sqlplus scott/tiger@192.168.2.128/orcl
+		注意：  i. 关闭远程防火墙
+			ii.远程： 将2个文件（tnsnames.ora、listener.ora） 的Host值 改成   IP地址或计算机名
+
+	c.分布操作
+		借助于数据库链路：
+
+
+	
+		
+	其中l2vm 是链路名
+	remoteORCL是服务名 ，用于连接远程的服务（orcl）
+		创建服务名： net manager
+
+	创建链路：（链路的单向的）
+create database link l2vm  connect to  scott identified by tiger  using 'remoteORCL';
+
+	
+
+
+同时操作本地和远端 ，关联查询
+select ename,dname from emp@l2vm e,dept d where  e.deptno = d.deptno ;
+
+emp@l2vm-> remoteemp
+
+
+select ename,dname from emp@l2vm e,dept d where  e.deptno = d.deptno ;
+
+
+创建同义词 屏蔽掉分布式访问的 关键字
+create synonym remoteemp for emp@l2vm ;
+
+
+select ename,dname from remoteemp  e,dept d where  e.deptno = d.deptno ;
+
+
+
+视图
+create view empremoteview
+as 
+  select ename,dname from remoteemp  e,dept d where  e.deptno = d.deptno ;
+
+
+select * from empremoteview;
+
+查看星期的显示格式： select to_char(sysdate,'day') from dual;
+
+快照：可以备份远程数据库（快照有一定延迟）
+create snapshot empdeptss
+refresh start with sysdate 
+next next_day(sysdate,'星期三')   
+as
+select * from emp@l2vm 
+
+;
+
+
+触发器：（实时备份） 
+工资问题：如果本地数据库中修改工资了，则同步到远程
+
+
+
+create or replace trigger update_emp
+after update on emp 
+for each row
+
+begin
+	update emp@l2vm  set sal=:new.sal  where empno=:new.empno ;
+
+end ;
+/
+
+update后注意commit;
+
+
+EM管理器（了解）
+  	 OracleDBConsocleorcl
+	 关闭远程防火墙  本地->VM
+
+https://192.168.2.128:1158/em
+
+	
+	临时表：
+		中间产物，用完就自动删除
+	select *from emp  order by sal ;
+
+	延迟：约束
+
+
+
+name :   check( length(name) >2 )  ->延迟
+
+a
+b
+
+
+commit ;  延迟报错
+
+
+用户权限：
+	登录验证
+	密码校验sqlplus scott/tiger  
+
+
+外部校验 条件： 当前系统用户必须是 dba角色  （查看：右键计算机- 本地用户和组 ）
+	外部校验 sqlplus / as sysdba   （自动屏蔽密码校验）
+
+	全局校验： 生物认证  、 token（令牌环，银行卡：  U盾）
+
+
+预定义账户：
+	scott
+	sys : 最高权限（一切权限）
+	system 	：DBA权限
+
+
+权限：
+	系统权限： 允许用户执行对【数据库】的特定行为  （创建用户、创建表）
+	对象权限： 允许用户执行一个特定的【对象】  （ scott查看hr的一张表）
+
+	系统权限：
+	创建用户
+	create user  yq identified by yq ;  没有任何权限（包含登录权限）
+
+		赋予yq登录权限grant  CREATE SESSION to yq;
+
+
+	对象权限：让yq可以查询scott用户的emp表
+		grant select on scott.emp to yq ;
+	
+yq查看：
+	select *from scott.emp;
+
+
+
+
+	
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

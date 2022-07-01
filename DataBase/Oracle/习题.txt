@@ -1,0 +1,223 @@
+分析：
+	1.要查询哪些字段、表
+	2.连接条件
+
+1.要查询哪些字段、表:
+
+	sal*12 + nvl(comm ,0)  年工资,  dname  部门名称
+	emp e, dept d
+ 
+2.连接条件:	
+	e.deptno = d.deptno
+
+
+sql:
+	select sal*12 + nvl(comm ,0)  年工资,  dname  部门名称
+	from emp e, dept d where  e.deptno = d.deptno order by 年工资 asc ;
+----
+
+1.要查询哪些字段、表
+
+	e.empno  ,e.ename , b.empno   ,b.ename
+
+	emp e，emp b 
+
+2.连接条件
+	e.mgr = b.empno 
+
+KING：大老板 没有上级领导
+
+
+
+SQL：
+select 	e.empno  ,e.ename , b.empno   ,b.ename
+from emp e，emp b 
+where e.mgr = b.empno(+)
+order by b.sal*12+nvl(b.comm,0) desc ;
+
+---
+误区： 阅读理解！ 
+正确做法：翻译  文字->SQL
+
+1.要查询哪些字段、表
+select job ,sum(sal)
+from emp
+where job <> 'SALESMAN'
+	group by job
+	having sum(sal)>5000
+	order by  sum(sal) desc ;
+
+
+salesmane: 10  ->8000
+dev:  8  -->7000
+test :6  -->4000
+
+	2.连接条件
+
+
+
+
+
+
+---
+错误
+select count(*),avg(sal)
+from emp
+group by comm ;
+
+重新读题：
+select count(*),avg(sal)
+from emp  where comm is not null and comm > 0 
+union 
+select count(*),avg(sal)
+from emp  where  comm is  null or comm = 0;
+
+---select后的字段，如果不在聚合函数中，就必须出现在 group by 后面。
+错误：select min(sal) , ename from emp group by job;
+语法和逻辑 混乱：
+语法：group by ename
+逻辑： group by job
+
+修改：
+	概念:两张表 连接条件：
+1.一般推荐做法： 外键=主键，	emp.depnto = dept.deptno
+2.全值连接（全部的普通字段）:如果两张表中 的 大部分字段值一直，则可以认为 是一条数据。
+	
+student:100  
+name grade classname  sex  .........
+
+select t.minsal, t.job ,e.ename 
+from emp e,
+(select min(sal) minsal ,job from emp group by job) t
+where t.minsal = e.sal and t.job = e.job ; 
+
+
+
+select  d.deptno, d.dname from dept  d ,emp e
+where d.deptno = e.deptno
+and e.sal<=2500
+group by d.deptno , d.dname
+having count(*) = (select max(count(*))    from emp where sal <=2500 group by deptno) ;
+
+
+
+各组(各个部门)  中员工人数最大
+select max(count(*))    from emp where sal <=2500 group by deptno ;
+
+
+----
+统计各个年份的入职人数、以及总入职人数。
+
+
+hiredate:年
+	date->varchar
+	
+
+to_char(hiredate,'yyyy')->1980
+
+
+	各个年份：
+		case...
+		decode 
+
+
+	decode(条件,值1,返回值1,值2,返回值2,...,else)
+
+1980年入职人数
+decode(to_char(hiredate,'yyyy'),1980,1,0)
+
+1981年入职人数
+decode(to_char(hiredate,'yyyy'),1981,1,0)
+
+
+
+1987年入职人数
+decode(to_char(hiredate,'yyyy'),1987,1,0)
+
+->sum
+
+思路：
+1980 ：14条数据：  1     0
+select count(*) 总人数,  sum( decode(to_char(hiredate,'yyyy'),1980,1,0) ) "1980",sum( decode(to_char(hiredate,'yyyy'),1981,1,0) ) "1981",sum( decode(to_char(hiredate,'yyyy'),1987,1,0) ) "1987"  from emp ;
+
+伪列：不属于任何一张表，但是会被所有的表共享
+
+rownum：逻辑序列	1	2	3	4	5	6	7...
+rowid:物理序列（18） 真实的存放位置
+
+
+rownum：不同SQL语句在执行时，rownum的值不一致
+	在相同SQL语句在执行时，rownum的值不变  (在一次查询时 产生rownum，之后保持不变)。
+
+
+查询工资最高的前3条员工信息
+
+
+
+select ename ,sal from emp 
+where rownum <=3
+order by sal desc ;  --临时表
+
+
+
+select ename ,sal from emp 
+where rownum <=3;  
+
+
+rownum	ename  	sal
+1	zs	7000
+2	ls	6000
+3	ww	5000
+4	zl	9000
+
+
+
+select ename ,sal from emp 
+where rownum <=3
+order by sal desc ;
+
+ 
+
+rownum	ename  	sal
+1	zs	7000
+2	ls	6000
+3	ww	5000
+4	zl	9000
+
+--- order by sal desc
+4	zl	9000
+1	zs	7000
+2	ls	6000
+3	ww	5000
+
+
+
+
+
+子查询： order by ,top-n
+	
+	select rownum ,ename ,sal from (select * from emp order by sal desc) where rownum<=3  ;
+rownum	name	sal
+1	zl	9000
+2	zs	7000
+3	ls	6000
+4	ww	5000
+
+
+top - n：前n个数据  ：
+	select rownum, .... from ( select *from xxx order by ...) where rownum <=n ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

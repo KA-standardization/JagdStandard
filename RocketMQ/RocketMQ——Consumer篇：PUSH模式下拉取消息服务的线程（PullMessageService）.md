@@ -1,0 +1,17 @@
+# RocketMQ——Consumer篇：PUSH模式下拉取消息服务的线程（PullMessageService）
+
+只有在PUSH模式下才会使用PullMessageService服务线程，该线程主要是对pullRequestQueue:LinkedBlockingQueue<PullRequest>队列进行监测，处理该队列中的PullRequest请求对象；同时该线程也提供了两种拉取方式，分别是立即拉取和延迟拉取两种；
+
+### 1 拉取消息的处理逻辑
+
+在该线程的run方法中，循环地不间断地从pullRequestQueue队列获取PullRequest对象；若获取到了（即PullRequest对象不为null），则调用PullMessageService.pullMessage(PullRequest pullRequest)方法。
+
+在该方法中根据入参PullRequest对象的consumerGroup变量值从MQClientInstance.consumerTable:ConcurrentHashMap<String/* group */, MQConsumerInner>变量中获取MQConsumerInner对象，由于PullMessageService服务线程只有在PUSH模式下才会使用，故MQConsumerInner对象的初始值为DefaultMQPushConsumer对象，故若获取的MQConsumerInner对象不为null，则将类型转换成DefaultMQPushConsumerImpl对象，然后调用该DefaultMQPushConsumerImpl对象的pullMessage(PullRequest pullRequest)方法。
+
+### 2 延迟拉取消息
+
+调用PullMessageService.executePullRequestLater(PullRequest pullRequest,long timeDelay)方法将PullRequest请求对象延迟放入pullRequestQueue队列中，在该方法中初始化一个匿名的Runable线程，放入PullMessageService.scheduledExecutorService: ScheduledExecutorService线程池中，在timeDelay毫秒之后执行该匿名线程，该匿名的线程的run方法业务逻辑是调用PullMessageService.executePullRequestImmediately (PullRequest pullRequest)方法，在该方法中将PullRequest对象放入pullRequestQueue队列中。
+
+### 3 立即拉取消息
+
+调用PullMessageService.executePullRequestImmediately (PullRequest pullRequest)方法，在该方法中立即将PullRequest对象放入pullRequestQueue队列中，由线程调用执行该请求对象。

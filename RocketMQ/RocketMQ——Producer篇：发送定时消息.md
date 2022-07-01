@@ -1,0 +1,3 @@
+# RocketMQ——Producer篇：发送定时消息
+
+目前只支持固定精度级别的定时消息，服务器按照1-N定义了如下级别： “1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h”；若要发送定时消息，在应用层初始化Message消息对象之后，调用Message.setDelayTimeLevel(int level)方法来设置延迟级别，按照序列取相应的延迟级别，例如level=2，则延迟为5s；  对于延迟级别的设置只有在该消息为非事务性消息（sysflag的第3/4字节为0）或者为提交事务消息（sysflag的第3字节为0，第4字节为1）时才会生效，默认情况下消息是非事务性消息。目前RocketMQ没有开源事务消息的设置，消息的property属性中TRAN_MSG字段设置了可解析为true的字符串后，sysflag的标志位第3个字节为1，即表示事务的PREPARED状态。  同样调用DefaultMQProducer.send(Message msg)方法进行消息发送，在Broker端将消息写入commitlog文件（CommitLog.putMessage (MessageExtBrokerInner msg)方法）的时候，会将延迟消息重新封装成主题为“SCHEDULE_TOPIC_XXXX”的消息存入commitlog中；  由ScheduleMessageService服务线程来检测延迟消息并到期后将真正的消息再次写入commitlog中等待消费；

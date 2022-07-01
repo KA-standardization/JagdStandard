@@ -1,0 +1,455 @@
+# RocketMQ——Broker
+
+## 1 Broker的初始化过程
+
+调用BrokerController对象的initialize方法进行初始化工作。大致逻辑如下：
+
+1、加载topics.json、consumerOffset.json、subscriptionGroup.json文件，分别将各文件的数据存入TopicConfigManager、ConsumerOffsetManager、SubscriptionGroupManager对象中；在初始化BrokerController对象的过程中，初始化TopicConfigManager对象时，默认初始化了"SELF_TEST_TOPIC"、"TBW102"（自动创建Topic功能是否开启BrokerConfig.autoCreateTopicEnable=false，线上建议关闭）、"BenchmarkTest"、BrokerClusterName（集群名称）、BrokerName（Broker的名称）、"OFFSET_MOVED_EVENT"这5个topic的信息并存入了topicConfigTable变量中，在向NameServer注册时发给NameServer进行登记；
+
+2、初始化DefaultMessageStore对象，该对象是应用层访问存储层的访问类；
+
+2.1)AllocateMapedFileService服务线程，当需要创建MappedFile时（在MapedFileQueue.getLastMapedFile方法中），向该线程的requestQueue队列中放入AllocateRequest请求对象，该线程会在后台监听该队列，并在后台创建MapedFile对象，即同时创建了物理文件。
+
+2.2）创建DispatchMessageService服务线程，该服务线程负责给commitlog数据创建ConsumeQueue数据和创建Index索引。
+
+2.3）创建IndexService服务线程，该服务线程负责创建Index索引；
+
+2.4）还初始化了如下服务线程，在调用DispatchMessageService对象的start方法时启动这些线程：
+
+| 服务类名                 | 作用                                                         |
+| ------------------------ | ------------------------------------------------------------ |
+| FlushConsumeQueueService | 逻辑队列刷盘服务，每隔1秒钟就将ConsumeQueue逻辑队列、TransactionStateService.TranRedoLog变量的数据持久化到磁盘物理文件中 |
+| CleanCommitLogService    | 清理物理文件服务，定期清理72小时之前的物理文件。             |
+| CleanConsumeQueueService | 清理逻辑文件服务，定期清理在逻辑队列中的物理偏移量小于commitlog中的最小物理偏移量的数据，同时也清理Index中物理偏移量小于commitlog中的最小物理偏移量的数据。 |
+| StoreStatsService        | 存储层内部统计服务                                           |
+| HAService                | 用于commitlog数据的主备同步                                  |
+| ScheduleMessageService   | 用于监控延迟消息，并到期后执行                               |
+| TransactionStateService  | 用于事务消息状态文件，在RocketMQ-3.1.9版本中可以查看源码     |
+
+2.5）初始化CommitLog对象，在初始化该对象的过程中，第一，根据刷盘类型初始化FlushCommitLogService线程服务，若为同步刷盘（SYNC_FLUSH），则创建初始化为GroupCommitService线程服务；若为异步刷盘（ASYNC_FLUSH）则创建初始化FlushRealTimeService线程服务；第二，初始化DefaultAppendMessageCallback对象；
+
+2.6）启动AllocateMapedFileService、DispatchMessageService、IndexService服务线程。
+
+3、调用DefaultMessageStore.load加载数据：
+
+3.1)调用ScheduleMessageService.load方法，初始化延迟级别列表。将这些级别（"1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h"）的延时存入延迟级别delayLevelTable：ConcurrentHashMap<Integer /* level */, Long/* delay timeMillis */>变量中，例如1s的kv值为1:1000,5s的kv值为2:5000，key值依次类推；每个延迟级别即为一个队列。
+
+3.2)调用CommitLog.load方法，在此方法中调用MapedFileQueue.load方法，将$HOME /store/commitlog目录下的所有文件加载到MapedFileQueue的List<MapedFile>变量中；
+
+3.3)调用DefaultMessageStore.loadConsumeQueue方法加载consumequeue文件数据到DefaultMessageStore.consumeQueueTable集合中。
+
+3.4）调用TransactionStateService.load()方法加载tranStateTable文件和tranRedoLog文件；
+
+3.5)初始化StoreCheckPoint对象，加载$HOME/store/checkpoint文件，该文件记录三个字段值，分别是物理队列消息时间戳、逻辑队列消息时间戳、索引队列消息时间戳。
+
+3.6)调用IndexService.load方法加载$HOME/store/index目录下的文件。对该目录下的每个文件初始化一个IndexFile对象。然后调用IndexFile对象的load方法将IndexHeader加载到对象的变量中；再根据检查是否存在abort文件，若有存在abort文件，则表示Broker表示上次是异常退出的，则检查checkpoint的indexMsgTimestamp字段值是否小于IndexHeader的endTimestamp值，indexMsgTimestamp值表示最后刷盘的时间，若小于则表示在最后刷盘之后在该文件中还创建了索引，则要删除该Index文件，否则将该IndexFile对象放入indexFileList:ArrayList<IndexFile>索引文件集合中。
+
+3.7)恢复内存数据。
+
+1）恢复每个ConsumeQueue对象的maxPhysicOffset变量的值（最后一个消息的物理offset），遍历consumeQueueTable集合中的每个topic/queueId下面的ConsumeQueue对象，调用ConsumeQueue对象recover方法。
+
+2）根据是否有abort文件来确定选择何种方法恢复commitlog数据，若有该文件则调用CommitLog对象的recoverAbnormally方法进行恢复，否则调用CommitLog对象的recoverNormally方法进行恢复。主要是恢复MapedFileQueue对象的commitedWhere变量值（即刷盘的位置），删除该commitedWhere值所在文件之后的commitlog文件以及对应的MapedFile对象。
+
+3）恢复CommitLog对象的topicQueueTable :HashMap<String/* topic-queueid */, Long/* offset */>变量值；遍历consumeQueueTable集合，逻辑如下：
+
+A）对每个topic/queueId下面的ConsumeQueue对象，获取该对象的最大偏移量，等于MapedFileQueue.getMaxOffset/20；然后以topic-queueId为key值，该偏移量为values，存入topicQueueTable变量中；
+
+B）以commitlog的最小物理偏移量修正ConsumeQueue对象的最小逻辑偏移量minLogicOffset；
+
+4）调用TransactionStateService.tranRedoLog:ConsumeQueue对象的recover()方法恢复tranRedoLog文件；
+
+5）调用TransactionStateService.recoverStateTable(boolean lastExitOK)方法恢复tranStateTable文件，
+
+5.1）若存在abort文件则上一次退出是异常关闭，采用如下恢复方式：
+
+A）删除tranStateTable文件；
+
+B）新建tranStateTable文件,然后从tranRedoLog文件的开头开始偏移，找出所有事务消息状态为PREPARED的记录，该记录为每个事务消息在commitlog的物理位置；
+
+C）遍历这些PREPARED状态的事务消息的物理位置集合，以物理位置commitlogoffset值从commitlog文件中找出获取每个事务消息的commitlogoffset、msgSize、StoreTimeStamp以及producerGroup的hash值，然后调用TransactionStateService.appendPreparedTransaction(long clOffset, int size, int timestamp, int groupHashCode)方法将这些信息写入新建的tranStateTable文件中，并更新TransactionStateService.tranStateTableOffset变量值（表示在tranStateTable文件中的消息个数）；
+
+5.2）若不存在abort文件则上一次是正常关闭，采用如下恢复方式：
+
+与调用ConsumeQueue对象的recover方法恢复ConsumeQueue数据的逻辑是一样的；在恢复完tranStateTable文件数据之后计算该文件中的消息个数并赋值给TransactionStateService.tranStateTableOffset变量值，计算方式为MapedFileQueue.getMaxOffset()/24；
+
+4、初始化Netty服务端NettyRemotingServer对象；
+
+5、初始化发送消息线程池（sendMessageExecutor）、拉取消息线程池（pullMessageExecutor）、管理Broker线程池（adminBrokerExecutor）、客户端管理线程池（clientManageExecutor）。
+
+6、注册事件处理器，包括发送消息事件处理器（SendMessageProcessor）、拉取消息事件处理器、查询消息事件处理器（QueryMessageProcessor，包括客户端的心跳事件、注销事件、获取消费者列表事件、更新更新和查询消费进度consumerOffset）、客户端管理事件处理器、结束事务处理器（EndTransactionProcessor）、默认事件处理器（AdminBrokerProcessor）。
+
+7、启动如下定时任务：
+
+1）Broker的统计功能；
+
+2）每隔5秒对ConsumerOffsetManager.offsetTable: ConcurrentHashMap<String/* topic@group */, ConcurrentHashMap<Integer, Long>>变量的内容进行持久化操作，持久化到consumerOffset.json文件中；
+
+3）扫描被删除的topic，将offsetTable中的对应的消费进度记录也删掉。大致逻辑是遍历ConsumerOffsetManager.offsetTable变量：
+
+A）以group和topic为参数调用ConsumerManager.findSubscriptionData(String group, String topic)方法获取当前该topic和group的订阅数据；若获取的数据为空，则认为该topic和group已经不在当前订阅关系中。
+
+B）遍历该topic@group下面的所有队列的消费进度（ConsumerOffsetManager.offsetTable变量的values值），检查每个队列的消费进度是否都大于该队列最小逻辑偏移量；
+
+C）若该topic和group已经不在当前订阅数据表中，而且在offsetTable中的消费进度已经小于ConsumeQueue的最小逻辑偏移量minLogicOffset，则从offsetTable变量中删除该记录。
+
+8、检查Broker配置的Name Server地址是否为空，若不为空，则更新Broker的Netty客户端BrokerOuterAPI.NettyRemotingClient的Name Server地址；若为空且配置了允许从地址服务器找Name Server地址，则启动定时任务，地址服务器的路径是"[http://&quot](http://%26quot/); + WS_DOMAIN_NAME + ":8080/rocketmq/" + WS_DOMAIN_SUBGROUP ；其中WS_DOMAIN_NAME由配置参数rocketmq.namesrv.domain设置，WS_DOMAIN_SUBG由配置参数rocketmq.namesrv.domain.subgroup设置；
+
+9、若该Broker为主用，则启动定时任务打印主用Broker和备用Broker在Commitlog上的写入位置相差多少个字节。
+
+主用Broker的写入位置计算方式：获取最后一个MappedFile的fileFromOffset和wrotePostion值，相加即为最新的写入位置。
+
+备用Broker的写入位置从HAService. push2SlaveMaxOffset获得，该值表示主用Broker同步到Slave的最大Offset。
+
+10、若该Broker为备用，首先检查是否配置了主用Broker的地址，在备用Broker可以在broker.properties配置文件中设置haMasterAddress参数来指定主用Broker的地址，若设置了，则更新HAService.HAClient.masterAddress的值；若没有配置，则设置标志位updateMasterHAServerAddrPeriodically等于true，在该Broker向NameServer注册的时候根据NameServer返回的主用Broker地址来设置HAClient.masterAddress值；说明在配置参数haMasterAddress设置的主用地址的优先级要高于NameServer返回的主用Broker地址。
+
+11、若该Broker为备用，设置同步Config文件的定时任务，每隔60秒调用SlaveSynchronize.syncAll()方法向主用Broker请求一次config类文件的同步。
+
+## 2 Broker的启动过程
+
+1、调用DefaultMessageStore.start方法启动DefaultMessageStore对象中的一些服务线程。
+
+1.1）启动FlushConsumeQueueService线程服务；
+
+1.2）调用CommitLog.start方法，启动CommitLog对象中的FlushCommitLogService线程服务，若是同步刷盘（SYNC_FLUSH）则是启动GroupCommitService线程服务；若是异步刷盘（ASYNC_FLUSH）则是启动FlushRealTimeService线程服务；
+
+1.3）启动StoreStatsService线程服务；
+
+1.4）在Broker是主用模式的时候，启动ScheduleMessageService线程服务；在启动的过程中，向每个级别的对应的队列都增加定时任务，周期性的检查队列中是否有延迟消息存在，若有则到期后就执行该延迟消息，执行的目的是将真正的消息写入commitlog中，并生成consumequeue和index数据。
+
+1.5）在Broker是备用模式的时候，启动ReputMessageService线程服务；首先设置该线程服务的reputFromOffset值等于备用Broker本地commitlog文件的最大物理offset值；在该线程的run方法中，不断地检查在commitlog文件中reputFromOffset偏移量之后是否有新数据添加，若有则对这些数据创建逻辑队列和Index索引；在主从同步时会使用该线程服务。
+
+1.6）启动HAService线程服务，进行commitlog数据的主备同步；
+
+1.7）在目录$HOME/store下面创建abort文件，没有任何内容；只是标记是否正常关闭，若为正常关闭，则在关闭时会删掉此文件；若未正常关闭则此文件一直保留，下次启动时根据是否存在此文件进行不同方式的内存数据恢复。
+
+1.8）设置定时任务，每隔10秒调用CleanCommitLogService.run和CleanConsumeQueueService.run方法进行一次资源清理，分别清理物理文件以及对应的逻辑文件。
+
+1.9）调用TransactionStateService.start方法，在该方法中为每个tranStateTable文件初始化一个定时任务，该定时任务的作用是每隔1分钟遍历一遍tranStateTable文件中的数据对于处于PREPARED状态的事务消息，向Producer回查事务消息的最新状态；
+
+2、启动Broker的Netty服务端NettyRemotingServer。监听消费者或生产者发起的请求信息并处理；
+
+3、启动BrokerOuterAPI中的NettyRemotingClient，即建立与NameServer的链接，用于自身Broker与其他模块的RPC功能调用；包括获取NameServer的地址、注册Broker、注销Broker、获取Topic配置、获取消息进度信息、获取订阅关系等RPC功能。
+
+4、启动拉消息管理服务PullRequestHoldService，当拉取消息时未发现消息，则初始化PullRequeset对象放入该服务线程的pullRequestTable列表中，由PullRequestHoldService每隔1秒钟就检查一遍每个PullRequeset对象要读取的数据位置在consumequeue中是否已经有数据了，若有则交由PullManageProcessor处理。
+
+5、启动ClientHousekeepingService服务，在启动过程中设置定时任务，该定时任务每隔10秒就检查一次客户端的链接情况，清除不活动的链接（即在120秒以内没有数据交互了），包括：
+
+5.1)Producer的链接。检查ProducerManager.groupChannelTable：HashMap<String, HashMap<Channel, ClientChannelInfo>>变量，查看每个ClientChannelInfo的lastUpdateTimestamp距离现在是否已经超过了120秒，若是则从该变量中删除此链接。
+
+5.2)Consumer的链接。检查ConsumerManager.consumerTable: ConcurrentHashMap<String, ConsumerGroupInfo>变量，查看每个ClientChannelInfo的lastUpdateTimestamp距离现在是否已经超过了120秒，若是则从该变量中删除此链接。
+
+5.3)过滤服务器的链接。检查FilterServerManager.filterServerTable：ConcurrentHashMap<Channel, FilterServerInfo>，同样是检查lastUpdateTimestamp变量值距离现在是否已经超过了120秒，若是则从该变量中删除此链接。
+
+6、启动FilterServerManager，每隔30秒定期一次检查Filter Server个数，若没有达到16个则创建；
+
+7、首先调用BrokerController.registerBrokerAll方法立即向NameServer注册Broker；然后设置定时任务，每隔30秒调用一次该方法向NameServer注册；
+
+8、启动每隔5秒对未使用的topic数据进行清理的定时任务。该定时任务调用DefaultMessageStore.cleanUnusedTopic(Set<String>topics)方法。
+
+## 3 向NameServer注册Broker
+
+调用BrokerController.registerBrokerAll方法立即向NameServer注册Broker。大致步骤如下：
+
+1、将TopicConfigManager.topicConfigTable变量序列化成TopicConfigSerializeWrapper对象；
+
+2、BrokerOuterAPI.registerBrokerAll(String clusterName, StringbrokerAddr, String brokerName, long brokerId, String haServerAddr, TopicConfigSerializeWrapper topicConfigWrapper, List<String> filterServerList, boolean oneway)方法向Name Server注册；其中haServerAddr等于"该Broker的本地IP地址:端口号（默认为10912）"；在该方法中遍历所有的NameServer地址，对于每个NameServer地址均调用BrokerOuterAPI.registerBroker方法，在registerBroker方法中创建RegisterBrokerRequestHeader对象，然后向NameServer发送REGISTER_BROKER请求码；
+
+3、根据updateMasterHAServerAddrPeriodically标注位（在初始化时若Broker的配置文件中没有haMasterAddress参数配置，则标记为true，表示注册之后需要更新主用Broker地址）以及NameServer返回的HaServerAddr地址是否为空，若标记位是true且返回的HaServerAddr不为空，则用HaServerAddr地址更新HAService.HAClient.masterAddress的值；该HAClient.masterAddress值用于主备Broker之间的commitlog数据同步之用；
+
+4、用NameServer返回的MasterAddr值更新SlaveSynchronize.masterAddr值，用于主备Broker同步Config文件使用；
+
+5、根据Name Server上的配置参数ORDER_TOPIC_CONFIG的值来更新Broker端的TopicConfigManager.topicConfigTable变量值，对于在ORDER_TOPIC_CONFIG中配置了的topic，将该topic的配置参数order置为true，否则将该topic的配置参数order置为false；
+
+## 4 清理未使用的topic数据
+
+调用DefaultMessageStore.cleanUnusedTopic(Set<String>topics)方法对未使用的topic数据进行清理。
+
+1、请求参数topics集合取至TopicConfigManager.topicConfigTable列表的key值集合；由Broker的心跳检测功能来维护该topicConfigTable列表的数据，该列表数据对应的是topics.json文件中的数据；
+
+2、遍历DefaultMessageStore.consumeQueueTable集合，若该集合中的某个topic在topicConfigTable列表已经找不到了，则在consumeQueueTable集合中删除该topic对应的记录；以及该topic目录下面的所有物理文件；然后以该topic和该topic目录下面所有队列ID组成的"topic-queueid"为key值删除CommitLog.topicQueueTable集合中对应的记录；
+
+## 5 根据topic和group查找Consumer订阅信息（findSubscriptionData）
+
+调用ConsumerManager.findSubscriptionData(String group, String topic)方法查询当前的订阅信息。
+
+1、从consumerTable:ConcurrentHashMap<String/* Group */, ConsumerGroupInfo>变量以group获取相应的 ConsumerGroupInfo对象；若该对象为空，则返回null；
+
+2、若该对象不为空，则从该ConsumerGroupInfo对象的subscriptionTable:ConcurrentHashMap<String/* Topic */, SubscriptionData>变量中获取SubscriptionData对象；并返回SubscriptionData对象，即为订阅信息。
+
+## 6 处理Producer发来的消息
+
+Broker端的NettyRemotingServer监听请求消息，收到请求码为SEND_MESSAGE/SEND_MESSAGE_V2的消息后转由SendMessageProcessor处理。为了降低网络传输数量，设计了两种SendMessageRequestHeader对象，一种是对象的变量名用字母简写替代，类名是SendMessageRequestHeaderV2，一种是对象的变量名是完整的，类名是SendMessageRequestHeader。大致处理过程如下：
+
+1、解码收到的消息，并构建SendMessageRequestHeader对象；
+
+2、若SendMessageProcessor处理器设置了发送消息的钩子sendMessageHookList:List<SendMessageHook>，则调用该钩子类的sendMessageBefore方法，执行发送前的处理方法，在发送消息结果之后调用sendMessageAfter 方法。 该钩子类是为了便于业务层面的扩展而设计的。
+
+3、调用SendMessageProcessor.sendMessage(ChannelHandlerContext ctx, RemotingCommand request, SendMessageContext mqtraceContext, SendMessageRequestHeader requestHeader)方法处理的消息并返回处理结果PutMessageResult对象；
+
+3.1）检查该Broker是否有写的权限，该消息的topic的配置（TopicConfigManager.topicConfigTable）中是否为有序（即属性order等于true）。若没有写的权限并且为该topic配置为有序，则该Broker不能发送此消息；直接返回给Producer响应消息，消息代码为NO_PERMISSION；
+
+3.2）检查消息的topic是否符合要求，等于"TBW102"或者Broker的集群名字（配置参数brokerClusterName指定的）的都属于不合规的消息主题，直接返回给Producer响应消息，消息代码为SYSTEM_ERROR；
+
+3.3）从TopicConfigManager.topicConfigTable变量中获取该topic的配置对象TopicConfig，若该对象为null，则调用TopicConfigManager. TopicConfigManager.createTopicInSendMessageMethod方法创建该topic的配置信息TopicConfig；若该TopicConfig对象仍然为null并且topic是以"%RETRY%"开头则调用TopicConfigManager.createTopicInSendMessageBackMethod方法创建TopicConfig对象；最后在坚持一次TopicConfig对象，若为null，则直接返回给Producer响应消息，消息代码为TOPIC_NOT_EXIST；
+
+3.4）检查消息的queueId是否合法，即不能大于该topic配置中的读写队列数的最大值，否则返回给Producer响应消息，消息代码为SYSTEM_ERROR；
+
+3.5）Broker的配置参数rejectTransactionMessage表示是否接收事务消息，默认是具有处理事务消息的权利，在消息的property属性中"TRAN_MSG"表示是否为空；若该Broker没有接受事务消息的权利但此消息的property属性中"TRAN_MSG"不为空（即为事务消息）则直接返回给Producer响应消息，消息代码为NO_PERMISSION；
+
+3.6构建MessageExtBrokerInner对象，调用调用DefaultMessageStore.putMessage(MessageExtBrokerInner msg)方法完成消息的写入，将消息内容写入commitlog文件中。
+
+4、上一步返回的PutMessageResult对象中：
+
+4.1）若putMessageStatus等于PUT_OK，则置响应消息的消息代码为SUCCESS;
+
+4.2）若putMessageStatus等于FLUSH_DISK_TIMEOUT、FLUSH_SLAVE_TIMEOUT或者SLAVE_NOT_AVAILABLE时，则置响应消息的消息代码为putMessageStatus的值；
+
+4.3）若putMessageStatus等于CREATE_MAPEDFILE_FAILED，则置响应消息的消息代码为SYSTEM_ERROR；
+
+4.4）若putMessageStatus等于MESSAGE_ILLEGAL，则置响应消息的消息代码为MESSAGE_ILLEGAL；
+
+4.5）若putMessageStatus等于SERVICE_NOT_AVAILABLE，则置响应消息的消息代码为SERVICE_NOT_AVAILABLE；
+
+4.5）若putMessageStatus等于UNKNOWN_ERROR，则置响应消息的消息代码为UNKNOWN_ERROR；
+
+5、对于4.1和4.2的结果，消息是写入成功了的，这是在刷盘或者同步方面有问题，仍然将messageId、queueId、逻辑offset分别依次赋值给响应消息的MsgId、queueId、queueOffset字段；
+
+## 7 处理与客户端的心跳消息
+
+接受到客户端发送的HEART_BEAT请求码之后，由ClientManageProcessor.processRequest(ChannelHandlerContext ctx, RemotingCommand request)方法处理该请求。其中心跳消息调用heartBeat(ChannelHandlerContext ctx, RemotingCommand request)方法处理。大致逻辑如下：
+
+1、解码接受消息，生成HeartbeatData对象；
+
+2、根据链接的Channel、ClientID等信息初始化ClientChannelInfo对象；
+
+3、若HeartbeatData对象中的ConsumerData集合有数据，则进行Consumer注册，对于该集合中的每个ConsumerData对象遍历如下操作步骤；（在接受到Consumer端的心跳信息后处理下列逻辑）。
+
+3.1）以心跳消息中的GroupName值调用SubscriptionGroupManager.findSubscriptionGroupConfig(String GroupNmae)方法获得SubscriptionGroupConfig对象；详见1.8.3小节。
+
+3.2）创建以%RETRY%+GroupName为topic值的topic配置信息。首先以该topic值在TopicConfigManager.topicConfigTable中查找是否存在，若不存在则创建TopicConfig对象，并存入topicConfigTable中，同时将该topicConfigTable变量的值持久化到topics.json文件中；
+
+3.3）调用ConsumerManager.registerConsumer(String group, ClientChannelInfo clientChannelInfo, ConsumeType consumeType, MessageModel messageModel, ConsumeFromWhere consumeFromWhere, Set<SubscriptionData> subList)方法进行Consumer的注册，其中Set<SubscriptionData>集合是消息中的SubscriptionDataSet变量；
+
+4、若HeartbeatData对象中的ProducerData集合有数据，则对每个ProducerData对象遍历调用ProducerManager.registerProducer(String group,ClientChannelInfo clientChannelInfo)方法进行Producer注册；在接受到Producer的心跳信息后处理该逻辑。
+
+5、返回成功；
+
+## 8 注册Consumer信息
+
+调用ConsumerManager.registerConsumer(String groupname, ClientChannelInfo clientChannelInfo, ConsumeType consumeType, MessageModel messageModel, ConsumeFromWhere consumeFromWhere, Set<SubscriptionData> subList)方法进行Consumer的注册。就是更新ConsumerManager.consumerTable:ConcurrentHashMap<String/* Group */, ConsumerGroupInfo>变量的值，大致逻辑如下：
+
+1、以参数groupname从ConsumerManager.consumerTable中获取ConsumerGroupInfo对象；若没有，则初始化ConsumerGroupInfo对象并存入consumerTable列表中，并返回该ConsumerGroupInfo对象；
+
+2、更新该ConsumerGroupInfo对象中的对应的渠道对象ClientChannelInfo对象的信息并返回update值，初始化为false。以该链接的Channel从ConsumerGroupInfo.channelInfoTable:ConcurrentHashMap<Channel, ClientChannelInfo>变量中获取ClientChannelInfo对象，若该对象为空，则将请求参数中的ClientChannelInfo对象存入该Map变量中，并且认为Channel被更新过故置update=true；若该对象不为空则检查已有的ClientChannelInfo对象的ClientId值是否与新传入的ClientChannelInfo对象的ClientId值一致，若不一致，则替换该渠道信息；最后更新ClientChannelInfo的时间戳；
+
+3、更新该ConsumerGroupInfo对象中的订阅信息。遍历请求参数Set<SubscriptionData>集合中的每个SubscriptionData对象，初始化置update=false；
+
+3.1）以SubscriptionData对象的topic值从ConsumerGroupInfo.subscriptionTable变量中获取已有的SubscriptionData对象；若获取的SubscriptionData对象为null，则以topic值为key值将遍历到的该SubscriptionData对象存入subscriptionTable变量中，并且认为订阅被更新过故置update=true；否则若已有的SubscriptionData对象的SubVersion标记小于新的SubscriptionData对象的SubVersion标记，就更新subscriptionTable变量中已有的SubscriptionData对象；
+
+3.2）检查ConsumerGroupInfo.subscriptionTable变量中每个topic，若topic不等于请求参数SubscriptionData集合的每个SubscriptionData对象的topic变量值；则从subscriptionTable集合中将该topic的记录删除掉，并且认为订阅被更新过故置update=true；
+
+3.4）更新ConsumerGroupInfo对象中的时间戳；
+
+4、若上述两步返回的update变量值有一个为true，则调用DefaultConsumerIdsChangeListener.consumerIdsChanged(String group, List<Channel> channels)方法，向每个Channel下的Consumer发送NOTIFY_CONSUMER_IDS_CHANGED请求码，在Consumer收到请求之后调用线程的wakeup方法，唤醒RebalanceService服务线程；
+
+## 9 注册Producer信息
+
+调用ProducerManager.registerProducer(String groupName,
+
+ClientChannelInfo clientChannelInfo)方法进行Producer注册。就是更新ProducerManager.groupChannelTable:HashMap<String,HashMap<Channel,ClientChannelInfo>>变量值。大致逻辑如下：
+
+1、以groupName从ProducerManager.groupChannelTable: HashMap<String,HashMap<Channel,ClientChannelInfo>>变量中获取values值；
+
+2、若没有获取到，则创建一个新的HashMap<Channel,ClientChannelInfo>作为values值，并以groupName值为key值存入groupChannelTable遍历中；
+
+3、以Chanel为key值从上面的values值中获取ClientChannelInfo对象；若该对象为空，则将该Channel和请求参数clientChannelInfo添加到此values值中。
+
+4、更新更新ClientChannelInfo对象的时间戳；
+
+以相同的逻辑将Producer的clientChannelInfo对象存入hashcodeChannelTable:HashMap<Integer /* group hash code */, List<ClientChannelInfo>>变量中，只是key值为groupName的hash值；
+
+## 10 查询消费进度（QUERY_CONSUMER_OFFSET）
+
+Broker接收到QUERY_CONSUMER_OFFSET请求码之后，调用ClientManageProcessor.queryConsumerOffset(ChannelHandlerContext ctx, RemotingCommand request)方法处理。大致步骤如下：
+
+1、调用ConsumerOffsetManager.queryOffset(String group, String topic, int queueId)，根据topic@consumerGroup、queueId从ConsumerOffsetManager.offsetTable变量中获取offset值并返回；若从offsetTable中查询不到，则返回-1；
+
+2、若第1步中返回值大于等于零，则将该值返回给请求者，若返回值小于零，则说明订阅组不存在，调用DefaultMessageStore.getMinOffsetInQuque(String topic,int queueId)方法获取最小逻辑offset值。
+
+3、若第2步返回的最小逻辑offset值不大于零（可能未来得及创建该topic和queueId下面的consumequeue或者刚启动还未更新最小逻辑offset），则检查该consumequeue队列的第一个消息单元中的物理偏移量与commitlog中最大物理偏移量的差值是否大于内存的最大使用率，若不大于内存的最大使用率，认为堆积的数据不多，则返回请求者消费进度为0，表示从0开始消费；否则返回未查询到结果；
+
+## 11 更新消费进度（UPDATE_CONSUMER_OFFSET）
+
+Broker接收到UPDATE_CONSUMER_OFFSET请求码之后，调用ClientManageProcessor.updateConsumerOffset(ChannelHandlerContext ctx, RemotingCommand request)方法处理。大致步骤如下：
+
+1、检查ClientManageProcessor.consumeMessageHookList变量中是否设置了消费消息之后的回调类（在BrokerController.registerConsumeMessageHook(ConsumeMessageHook hook)方法中可以设置）；若设置了则构建ConsumeMessageContext对象并执行ConsumeMessageHook.consumeMessageAfter(ConsumeMessageContext context)方法；
+
+2、以请求消息中的topic和group构成"topic"@"consumerGroup"为key值，以queueId和请求消息中的offset构成Map存入ConsumerOffsetManager.offsetTable: ConcurrentHashMap<String/* topic@group */, ConcurrentHashMap<Integer, Long>>变量中；
+
+## 12 处理Consumer拉取消息
+
+在Broker端收到PULL_MESSAGE请求码之后，初始化一个线程然后将该线程放入线程池中，由该线程完成拉取消息的逻辑处理。在该run方法中，由PullMessageProcessor.processRequest(ChannelHandlerContext ctx, RemotingCommand request)方法处理主用逻辑并返回RemotingCommand对象，若返回的对象RemotingCommand不为空（可能在processRequest方法已经发送应答了）写入Channel中。大致逻辑如下：
+
+1、检查Broker是否有读权限；若没有则返回响应消息，消息代码为NO_PERMISSION；
+
+2、以请求信息中的consumerGroup名称为参数调用SubscriptionGroupManager.findSubscriptionGroupConfig(String GroupNmae)方法获取订阅信息。若没有找到该Consumer的订阅信息并且Broker不允许自动创建订阅组，则返回响应消息，消息代码为SUBSCRIPTION_GROUP_NOT_EXIST；若找到了则检查该订阅组是否可以消费消息，即SubscriptionGroupConfig.consumeEnable变量是否为true；若不能则直接返回响应消息，消息代码为NO_PERMISSION；
+
+3、拉取消息PullMessageRequestHeader对象的sysFlag标志位，第一位表示commitOffsetEnable，第二位表示suspend；第三位表示subscription；第四位表示classFilterMode，这些字段都是有应用端设置之后，由buildSysFlag(final boolean commitOffset, final boolean suspend,final boolean subscription, final boolean classFilter)方法生成的sysFlag值；
+
+4、根据请求消息中的topic值从TopicConfigManager.topicConfigTable中获取TopicConfig对象，若为空则表示consumer消费的topic不存，直接返回响应消息，消息代码为TOPIC_NOT_EXIST；
+
+5、若不为空则首先，检查topicConfig是否有读的权限；若没有则返回响应消息，消息代码为NO_PERMISSION；然后检查请求消费的队列ID是否有效（即要大于0并且小于读队列总数），若无效则返回响应消息，消息代码为SYSTEM_ERROR；
+
+6、检查PullMessageRequestHeader对象的sysFlag标志位的第三位subscription标识，若为true，则直接用请求消息中的consumerGroup、topic、subscription构建SubscriptionData对象；若为false则还是要从ConsumerManager.consumerTable:ConcurrentHashMap<String/* Group */, ConsumerGroupInfo>变量中获取SubscriptionData对象，并检查该SubscriptionData对象的SubVersion是否小于请求信息中的SubVersion，若小于，则返回响应消息，消息代码为SUBSCRIPTION_NOT_LATEST；
+
+7、调用DefaultMessageStore.getMessage(String group,Stringtopic,int queueId,long offset, int maxMsgNums, SubscriptionData subscriptionData)方法读取消息，其中参数offset为请求消息的queueOffset参数值，返回GetMessageResult对象；
+
+8、用DefaultMessageStore.getMessage方法的返回值GetMessageResult对象中的参数值来初始化PullMessageResponseHeader对象；
+
+9、若GetMessageResult.suggestPullingFromSlave等于true，即表示该Broker消费很慢，存在消息堆积后，设置suggestWhichBrokerId等于1，即将Consumer的消费请求重定向到另外一台Slave机器。若为false则将suggestWhichBrokerId仍然设置为当前Broker的Id；
+
+10、检查GetMessageResult.status的值：
+
+10.1）若等于FOUND，这将返回对象RemotingCommand的code设置为SUCCESS,然后检查Broker是否设置了回调类PullMessageProcessor.ConsumeMessageHookList；若设置了则执行该回调类中的consumeMessageBefore方法；
+
+10.2）若等于MESSAGE_WAS_REMOVING（说明物理文件被删除了）或者等于NO_MATCHED_MESSAGE，则设置RemotingCommand的code等于PULL_RETRY_IMMEDIATELY；
+
+10.3）若等于NO_MESSAGE_IN_QUEUE；当请求消息中的读取开始位置offset值不等于0时，将RemotingCommand的code设置为PULL_OFFSET_MOVED（拉消息请求的Offset不合法，太小或太大），否则将RemotingCommand的code设置为PULL_NOT_FOUND；
+
+10.4）若等于OFFSET_FOUND_NULL（未获取到consumequeue数据）或者OFFSET_OVERFLOW_ONE（请求参数offset等于consumequeue中最大物理偏移量）时；则将RemotingCommand的code设置为PULL_NOT_FOUND；
+
+10.5）若等于OFFSET_OVERFLOW_BADLY（请求参数offset大于consumequeue中最大物理偏移量）或者OFFSET_TOO_SMALL（请求参数offset小于consumequeue中最小物理偏移量）时；则将RemotingCommand的code设置为PULL_OFFSET_MOVED；
+
+11、检查返回对象RemotingCommand的code值：
+
+11.1）若等于SUCCESS，首先，调用BrokerStatsManager对象进行统计记录；然后以消息的总大小创建消息头部，并以该头部字节和GetMessageResult对象初始化ManyMessageTransfer对象，该对象实现了Netty的FileRegion接口；再调用Channel.WriteAndFlush方法将该ManyMessageTransfer对象直接写入Channel中将获取到的数据返回给调用者，并添加一个渠道监听器ChannelFutureListener，该监听器实现了operationComplete方法，当消息方式完成后调用此监听器的该方法，在方法中调用GetMessageResult对象的release方法，释放资源；最后置返回对象RemotingCommand为null；
+
+11.2）若等于PULL_NOT_FOUND；并且允许长轮询（入参brokerAllowSuspend在processRequest(ChannelHandlerContext ctx,
+
+RemotingCommand request)方法调用时设置为true），即sysFlag中suspend的标记为true，则初始化PullRequest对象【初始化过程如下：其中该对象的pullFromThisOffset等于请求消息的queueOffset值；判断该Broker是否支持长轮询（BrokerConfig.longPollingEnable设置，默认为true），若是支持则设置该对象的timeoutMillis变量等于请求消息的suspendTimeoutMillis值，否则认为支持短轮询，设置timeoutMillis变量等于BrokerConfig.shortPollingTimeMills的值；设置该对象的suspendTimestamp等于当前时间戳】，然后调用PullRequestHoldService.suspendPullRequest(String topic, int queueId, PullRequest pullRequest)方法将PullRequest对象存入PullRequestHoldService.pullRequestTable变量中，由PullRequestHoldService服务线程定期检查是否有符合要求的数据；
+
+11.3）若等于PULL_OFFSET_MOVED。当该broker角色是主用或者BrokerConfig.offsetCheckInSlave（是否需要纠正位点，默认为false）等于true时，则首先用topic、queueId、brokerName参数初始化MessageQueue对象，然后初始化OffsetMovedEvent对象，其中该对象的MssageQueue变量等于刚初始化的MessageQueue对象；再调用PullMessageProcessor.generateOffsetMovedEvent(OffsetMovedEvent event)方法构建topic值为"OFFSET_MOVED_EVENT"的消息对象MessageExtBrokerInner，其中消息内容为OffsetMovedEvent对象的序列化；最后调用MessageStore.putMessage(MessageExtBrokerInner msg)方法将该消息存入CommitLog中；
+
+11.4）当该broker角色是备用或者BrokerConfig.offsetCheckInSlave（是否需要纠正位点，默认为false）等于false时，将suggestWhichBrokerId设置为当前Broker的Id，并且将code设置为RemotingCommand的code设置为PULL_RETRY_IMMEDIATELY；
+
+12、若broker是主用，并且允许长轮询（入参brokerAllowSuspend=true）并且SysFlag的commitoffset标记位为true则调用ConsumerOffsetManager.commitOffset(String group, String topic, int queueId, long offset)方法将请求消息中的commitOffset值存储到ConsumerOffsetManager.offsetTable变量中；
+
+## 13 对未拉取到的消息进行重试（PullRequestHoldService）
+
+在启动Broker的过程中启动该线程服务，主要是对于未拉取到的信息进行补偿，在后台每个1秒钟进行尝试拉取信息。该线程run方法的大致逻辑如下：
+
+遍历PullRequestHoldService.pullRequestTable: ConcurrentHashMap<String/* topic@queueid */,ManyPullRequest>变量中的每个Key值,其中ManyPullRequest对象是一个封装ArrayList<PullRequest>列表的对象；由Key值解析出topic和queueId，然后调用DefaultMessageStore.getMaxOffsetInQuque(String topic,int queueId)方法获取该topic和queueId下面的队列的最大逻辑Offset，再调用PullRequestHoldService.notifyMessageArriving(String topic, int queueId, long maxOffset)方法。主要的拉取消息逻辑在此方法中。
+
+1、根据topic和queueId构建key值从pullRequestTable中获取ManyPullRequest对象，该对象中包含了PullRequest的集合列表；
+
+2、遍历该PullRequest的集合中的每个PullRequest对象，遍历步骤如下：
+
+2.1）检查当前最大逻辑offset（入参maxOffset）是否大于该PullRequest对象的pullFromThisOffset值（该值等于当初请求消息的queueOffset值）；
+
+2.2）若当前最大逻辑offset大于请求的queueOffset值，说明请求的读取偏移量已经有数据达到了，则调用PullMessageProcessor.excuteRequestWhenWakeup(Channel channel, RemotingCommand request)方法进行消息的拉取，在该方法中的处理逻辑与收到PULL_MESSAGE请求码之后的处理逻辑基本一致，首先创建一个线程，然后将该线程放入线程池中，该线程的主要目的是调用PullMessageProcessor.processRequest(Channel channel, RemotingCommand request, boolean brokerAllowSuspend)方法，其中入参brokerAllowSuspend等于false，表示若未拉取到消息，则不再采用该线程的补偿机制了；然后继续遍历下一个PullRequest对象；
+
+2.3）若当前最大逻辑offset小于请求的queueOffset值；则再次读取最大逻辑offset进行第2.2步的尝试，若当前最大逻辑offset还是小于请求的queueOffset值，则检查该请求是否超时，即PullRequest对象的suspendTimestamp值加上timeoutMillis值是否大于当前时间戳，若已超时则直接调用PullMessageProcessor.excuteRequestWhenWakeup(Channel channel, RemotingCommand request)方法进行消息的拉取，然后继续遍历下一个PullRequest对象；若未超时则将该PullRequest对象存入临时的PullRequest列表中，该列表中的PullRequest对象是数据未到达但是也未超时的请求，然后继续遍历下一个PullRequest对象直到PullRequest集合遍历完为止；
+
+2.4）将临时的PullRequest列表重新放入PullRequestHoldService.pullRequestTable变量中，等待下一次的遍历。
+
+## 14 客户端顺序消费时锁住MessageQueue队列的请求（LOCK_BATCH_MQ）
+
+在Broker端收到LOCK_BATCH_MQ请求码之后，间接地调用了RebalanceLockManager.tryLockBatch(String group, Set<MessageQueue> mqs, String clientId)方法，该方法批量锁MessageQueue队列，返回锁定成功的MessageQueue队列集合，该方法的入参group为ConsumerGroup、mqs为该brokerName对应的MessageQueue集合（Consumer端传来的），clientId为Consumer端的ClientId，大致逻辑如下：
+
+在Broker端有数据结构RebalanceLockManager.mqLockTable:ConcurrentHashMap<String/* group */, ConcurrentHashMap<MessageQueue, LockEntry>>，表示一个consumerGroup下面的所有MessageQueue的锁的情况，锁是由LockEntry类标记的，在LockEntry类中clientId和lastUpdateTimestamp两个变量，表示某个客户端（clientId）在某时间（lastUpdateTimestamp）对MessageQueue进行锁住，锁的超时时间为60秒；
+
+1、初始化临时变量lockedMqs:Set<MessageQueue>和notLockedMqs: Set<MessageQueue>,分别存储锁住的MessageQueue集合和未锁住的MessageQueue集合；
+
+2、遍历请求参数MessageQueue集合，以请求参数group、每个MessageQueue对象、clientId为参数检查该MessageQueue对象是否被锁住，逻辑是：以group从RebalanceLockManager.mqLockTable中获取该consumerGroup下面的所有ConcurrentHashMap<MessageQueue, LockEntry>集合：若该集合不为空再以MessageQueue对象获取对应的LockEntry标记类，检查该LockEntry类是否被该clientId锁住以及锁是否过期，若是被该clientId锁住且没有过期，则更新LockEntry标记类的lastUpdateTimestamp变量；若该集合为空则认为没有锁住。若遍历的MessageQueue对象被该ClientId锁住且锁未超期了则将MessageQueue对象存入lockedMqs变量中，否则将MessageQueue对象存入notLockedMqs变量中。
+
+3、若notLockedMqs集合不为空，即表示有未锁住的MessageQueue队列，继续下面的处理；下面的逻辑处理块是加锁的，就是说同时只有一个线程执行该逻辑块。
+
+4、以group从RebalanceLockManager.mqLockTable中获取该consumerGroup下面的所有ConcurrentHashMap<MessageQueue, LockEntry>集合取名groupvalue集合，若该集合为空，则新建一个ConcurrentHashMap<MessageQueue,LockEntry>集合并赋值给groupvalue集合，然后以consumerGroup为key值存入RebalanceLockManager.mqLockTable变量中；
+
+5、遍历notLockedMqs集合，以每个MessageQueue对象从groupvalue集合中取LockEntry标记类，若该类为null（在第4步新建的集合会出现此情况）则初始化LockEntry类，并设置该类的clientId为该Consumer的clientId并存入groupvalue集合中；若该类不为null，则再次检查是否被该clientId锁住，若是则更新LockEntry标记类的lastUpdateTimestamp变量，并添加到lockedMqs集合中，然后继续遍历notLockedMqs集合中的下一个MessageQueue对象；若仍然未被锁则检查锁是否超时，若已经超时则设置该LockEntry类的clientId为该Consumer的clientId并更新lastUpdateTimestamp变量；
+
+6、返回lockedMqs集合给Consumer端；
+
+## 15 客户端顺序消费时解锁MessageQueue队列的请求（UNLOCK_BATCH_MQ）
+
+在Broker端收到UNLOCK_BATCH_MQ请求码之后，间接地调用了RebalanceLockManager.unlockBatch(String consumerGroup, Set<MessageQueue> mqs, String clientId)方法，该方法批量解锁请求中的MessageQueue队列；
+
+1、以consumerGroup为key值从RebalanceLockManager.mqLockTable:ConcurrentHashMap<String/* group */, ConcurrentHashMap<MessageQueue, LockEntry>>变量中获取对应的ConcurrentHashMap<MessageQueue, LockEntry>集合；
+
+2、遍历入参Set<MessageQueue>集合，以该集合中的每个MessageQueue对象从上一步获得的ConcurrentHashMap<MessageQueue, LockEntry>集合中获取LockEntry标记类，若该类不为null，则检查该LockEntry类的ClientId是否等于请求中的ClientId（请求端的ClientId）若相等则将该MessageQueue对象的记录从ConcurrentHashMap<MessageQueue, LockEntry>集合中移除；其他情况均不处理；
+
+## 16 获取consumerGroup名下的所有Consumer的ClientId（GET_CONSUMER_LIST_BY_GROUP）**
+
+在Broker端收到GET_CONSUMER_LIST_BY_GROUP请求码之后，调用ClientManageProcessor.getConsumerListByGroup(ChannelHandlerContext ctx, RemotingCommand request)方法获取请求消息中consumerGroup下面的注册的所有Consumer的ClientId，大致逻辑如下：
+
+1、根据请求消息中的consumerGroup从ConsumerManager.consumerTable:ConcurrentHashMap<String/* Group */, ConsumerGroupInfo>变量中获取对应的ConsumerGroupInfo对象；
+
+2、若ConsumerGroupInfo对象不为null，则从ConsumerGroupInfo. channelInfoTable:ConcurrentHashMap<Channel,ClientChannelInfo>变量中获取每个ClientChannelInfo对象，取该对象的clientId变量，构成clientId的集合；
+
+3、将该集合返回给客户端；
+
+## 17 将Consumer消费失败的消息写入延迟消息队列中（CONSUMER_SEND_MSG_BACK）**
+
+在Broker端收到CONSUMER_SEND_MSG_BACK请求码之后，调用SendMessageProcessor.consumerSendMsgBack(ChannelHandlerContext ctx, RemotingCommand request)方法进行回传消息的写入处理，大致逻辑如下：
+
+1、若SendMessageProcessor处理器设置了消费消息的钩子consumeMessageHookList:List< ConsumeMessageHook>，则调用该钩子类的consumeMessageAfter方法。该钩子是在注册监听器是设置的，但目前没有设置该钩子；
+
+2、以请求消息中的GroupName值调用SubscriptionGroupManager.findSubscriptionGroupConfig(String GroupNmae)方法获得SubscriptionGroupConfig对象；若该对象为null，则赋值响应消息的code等于SUBSCRIPTION_GROUP_NOT_EXIST，并返回给客户端；
+
+3、检查该Broker是否有写的权限，若没有写的权限则该Broker不能发送此消息；直接返回响应消息，消息代码为NO_PERMISSION；
+
+4、若SubscriptionGroupConfig.retryQueueNums（重试队列）为0；则直接丢弃该消息，返回响应消息，消息代码为SUCCESS；
+
+5、以请求消息中的GroupName值构建新的topic值，等于"%RETRY%+consumerGroup"；
+
+6、调用TopicConfigManager.createTopicInSendMessageBackMethod (String topic, int clientDefaultTopicQueueNums, int perm, int topicSysFlag)方法获取新构建的topic值的TopicConfig对象；
+
+7、若该对象为null，则直接返回SYSTEM_ERROR的响应消息，若该对象没有写入权限则直接返回NO_PEMISSION的响应消息；
+
+8、获取消息失败的消息内容。以请求消息中的offset（在消费某消息失败之后，该消息的commitlogoffset值）调用MessageStore.lookMessageByOffset (long commitLogOffset)方法，先从CommitLog文件中获取该commitLogOffset偏移量的4个字节（即为此消息的内容大小），然后调用DefaultMessageStore.lookMessageByOffset(long commitLogOffset, int size)方法获取从指定开始位置读取size大小的消息内容（MessageExt对象）；
+
+9、若该消息内容为null，则直接返回SYSTEM_ERROR的响应消息；
+
+10、从该消息的properties属性中获取"RETRY_TOPIC"属性值，若为null，则将此消息的topic值存入properties字段的"RETRY_TOPIC"属性中；
+
+11、若该消息的消费次数（MessageExt.reconsumeTimes）大于最大重试次数（SubscriptionGroupConfig.retryMaxTimes） 或者请求消息中的delayLevel值小于0，则创建topic值为"%DLQ%+consumerGroup"作为新的topic值；然后调用TopicConfigManager.createTopicInSendMessageBackMethod(String topic, int clientDefaultTopicQueueNums, int perm, int topicSysFlag)方法获取新构建的topic值的TopicConfig对象；若该对象为null则直接返回SYSTEM_ERROR的响应消息，否则以该新的topic值和TopicConfig对象继续执行下面的逻辑；
+
+12、若该消息的消费次数未超过最大重试次数并且请求消息中的delayLevel值大于等于0，若delayLevel等于0，则更新delayLevel等于重试次数加3，然后该新的delayLevel值存入此消息的properties字段的"DELAY"属性中；
+
+13、随机的获取queueId值；
+
+14、从MessageExt消息的properties属性中获取"ORIGIN_MESSAGE_ID"属性值，若没有则以MessageExt消息的msgId来设置新Message信息的properties属性的ORIGIN_MESSAGE_ID属性值，若有该属性值则将该属性值存入新Message信息的properties属性的ORIGIN_MESSAGE_ID属性值。保证同一个消息有多次发送失败能获取到真正消息的msgId；
+
+14、构建新的MessageExtBrokerInner对象，其中reconsumeTimes等于MessageExt.reconsumeTimes加1；
+
+15、调用DefaultMessageStore.putMessage(MessageExtBrokerInner msg)方法将消息写入延迟消息队列中；
+
+16、若消息写入成功则返回SCUEESS的响应消息；
+
+## 18 处理结束事务消息的请求（END_TRANSACTION）
+
+在Broker端收到END_TRANSACTION请求码之后，调用EndTransactionProcessor.processRequest(ChannelHandlerContext ctx, RemotingCommand request)方法将事务消息重新写入commitlog中并生成consumequeue和index数据，供Consumer消费，大致逻辑如下：
+
+1、以请求消息中的commitlogoffset值从CommitLog中获取一个单元的事务消息内容，即MessageExt对象；
+
+2、若该MessageExt对象不为空，检查该消息的properties中的"PGROUP"属性值是否等于请求消息的producerGroup，若不等则直接返回系统错误响应消息；
+
+3、MessageExt对象的queueoffset值是否等于请求消息的tranStateTableOffset、MessageExt对象的commitlogoffset值是否等于请求消息的commitlogoffset值，若有其一不等则直接返回系统错误响应消息；
+
+4、根据获取的MessageExt对象构建MessageExtBrokerInner对象，其中将properties中的"DELAY"属性值清除；根据Producer端返回的事务消息的状态重置消息的sysflag标记位的第3/4字节的值；
+
+5、若返回的事务消息状态为TransactionRollbackType，则将MessageExtBrokerInner对象的body置为null，表示在Consumer端不进行消费；
+
+6、调用DefaultMessageStore.putMessage(MessageExtBrokerInner msg)方法将事务信息重新写入commitlog中；
+
+7、将写入结果返回给Producer端；
+
+## 19 客户端发起更新或创建Topic（UPDATE_AND_CREATE_TOPIC）
+
+在Broker端收到UPDATE_AND_CREATE_TOPIC请求码之后，调用AdminBrokerProcessor.updateAndCreateTopic(ChannelHandlerContext ctx, RemotingCommand request)方法进行topic配置的更新以及向NameServer发起注册请求，大致逻辑如下：
+
+1、检查收到的topic值是否等于BrokerClusterName值，若等于则直接返回错误信息；
+
+2、根据请求消息创建TopicConfig对象，然后以topic为key值更新TopicConfigManager.topicConfigTable: ConcurrentHashMap<String, TopicConfig>变量中的TopicConfig对象；在更新dataVersion值（即版本号），然后将TopicConfigManager.topicConfigTable的值持久化到topics.json文件中。
+
+3、调用BrokerController.registerBrokerAll方法立即向NameServer注册Broker，即对NameServer中的topic信息更新。

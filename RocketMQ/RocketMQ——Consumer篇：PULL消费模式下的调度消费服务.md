@@ -1,0 +1,35 @@
+# RocketMQ——Consumer篇：PULL消费模式下的调度消费服务
+
+与PUSH模式相比，PULL模式需要应用层不间断地进行拉取消息然后再执行消费处理，提高了应用层的编码复杂度，为了Pull方式的编程复杂度，RocketMQ提供了调度消费服务（MQPullConsumerScheduleService），在topic的订阅发送变化（初次订阅或距上次拉取消息超时）就触发PULL方式拉取消息。
+
+### 1 应用层使用方式
+
+该类是PULL模式下面的调度服务，当RebalanceImpl.processQueueTable队列有变化时才进行消息的拉取，从而降低Pull方式的编程复杂度。在应用层按照如下方式使用：
+
+1、初始化MQPullConsumerScheduleService类，
+
+2、自定义PullTaskCallback接口的实现类，实现该接口的doPullTask(final MessageQueue mq, final PullTaskContext context)方法，在该方法中可以先调用DefaultMQPullConsumer.fetchConsumeOffset (MessageQueue mq, boolean fromStore)方法获取MessageQueue队列的消费进度；然后调用DefaultMQPullConsumer.pull(MessageQueue mq, String subExpression, long offset, int maxNums)方法，该方法是在指定的队列和指定的开始位置读取消息内容；再然后对获取到的消息进行相关的业务逻辑处理；最后可以调用DefaultMQPullConsumer.updateConsumeOffset(MessageQueue mq, long offset)方法进行消费进度的更新，其中offset值是在获取消息内容时返回的下一个消费进度值；
+
+3、调用MQPullConsumerScheduleService.registerPullTaskCallback (String topic, PullTaskCallback callback)方法，在该方法中以topic为key值将自定义的PullTaskCallback 对象存入MQPullConsumerScheduleService. callbackTable:ConcurrentHashMap<String /*topic*/,PullTaskCallback>变量中；
+
+4、调用MQPullConsumerScheduleService.start()方法启动该调度服务，在启动过程中，首先初始化队列监听器MessageQueueListenerImpl类，该类是MQPullConsumerScheduleService的内部类，实现了MessageQueueListener接口的messageQueueChanged方法；然后将该监听器类赋值给DefaultMQPullConsumer.messageQueueListener变量值；最后调用DefaultMQPullConsumer的start方法启动Consumer；
+
+### 2 触发拉取消息
+
+在RebalanceImpl.rebalanceByTopic()方法执行的过程中，若RebalanceImpl.processQueueTable有变化，则回调DefaultMQPullConsumer. messageQueueListener变量值的MessageQueueListenerImpl. MessageQueueChanged方法，在该方法中调用MQPullConsumerScheduleService. putTask(String topic, Set<MessageQueue> mqNewSet)方法，其中若为广播模式（BROADCASTING），则mqNewSet为该topic下面的所有MessageQueue队列；若为集群模式，则mqNewSet为给该topic分配的MessageQueue队列，putTask方法的大致逻辑如下：
+
+1、遍历MQPullConsumerScheduleService.taskTable: ConcurrentHashMap<MessageQueue, PullTaskImpl>列表（表示正在拉取消息的任务列表），检查该topic下面的所有MessageQueue对象，若该对象不在入参mqNewSet集合中的，将对应的PullTaskImpl对象的cancelled变量标记为true；
+
+2、对于mqNewSet集合中的MessageQueue对象，若不在MQPullConsumerScheduleService.taskTable列表中，则以MessageQueue对象为参数初始化PullTaskImpl对象（该对象为Runnable线程），然后放入taskTable列表中，并将该PullTaskImpl对象放入MQPullConsumerScheduleService.scheduledThreadPoolExecutor线程池中，然后立即执行该线程。
+
+### 3 拉取消息的线程（PullTaskImpl）
+
+该PullTaskImpl线程的run方法如下：
+
+1、检查cancelled变量是为true，若为false则直接退出该线程；否则继续下面的处理；
+
+2、以MessageQueue对象的topic值从MQPullConsumerScheduleService.callbackTable变量中获取PullTaskCallback的实现类（该类是由应用层实现）；
+
+3、调用该PullTaskCallback实现类的doPullTask方法，即实现业务层定义的业务逻辑（通用逻辑是先获取消息内容，然后进行相应的业务处理，最后更新消费进度）；
+
+4、再次检查cancelled变量是为true，若不为true，则将该PullTaskImpl对象再次放入MQPullConsumerScheduleService. scheduledThreadPoolExecutor线程池中，设定在200毫秒之后重新调度执行PullTaskImpl线程类；

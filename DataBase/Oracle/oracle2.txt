@@ -1,0 +1,699 @@
+
+
+
+rownum/rowid：删除重复数据
+
+
+create table mystudent(
+stuno number,
+stuname varchar2(10),
+stuage number 
+);
+
+insert into mystudent values(1,'zs',23) ;
+insert into mystudent values(1,'zs',23) ;
+
+insert into mystudent values(2,'ls',24) ;
+insert into mystudent values(2,'ls',24) ;
+
+insert into mystudent values(3,'ww',25) ;
+insert into mystudent values(3,'ww',25) ;
+
+insert into mystudent values(4,'zl',26) ;
+
+
+delete from mystudent where stuno in(
+select distinct stuno from mystudent);
+
+去重：distinct
+
+
+
+
+rowid：根据插入的顺序 依次递增
+
+
+rownum：逻辑伪列
+
+rowid:物理伪列，18位：
+	前6位： 数据对象编号
+	依次往后数3位：数据文件编号
+	依次往后数6位：数据块编号
+	依次往后数3：行号
+思路：
+	根据编号分组（将重复的数据 放到一组） ，然后在每组中只保留一个
+
+保留：rowid最小的
+delete from mystudent where  rowid not in (select min(rowid) from mystudent  group by stuno );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+约束
+	对数据的限制条件：  数据类型
+
+常见6个约束：
+	检查约束（check）           name > 4 
+	唯一约束（Unique）          id:1  2  3 4  null 
+	主键约束（Primary key）     类似唯一约束(唯一) 
+	外键约束（Foreign Key）      两张表 学生表   课程表(1 2 3)
+	非空约束(Not null)          不能为null
+	默认约束（Default）         adress:   西安
+				insert into student(id,name) values(1,'zs')
+
+主键和唯一的区别：
+	a.【主键不能为Null】，唯一 可以为null
+	b.主键可以是复合主键，也可以是单值主键（id）
+	c.一张表中 只能设置一次主键（复合主键），但唯一键可以设置多次
+
+
+
+
+1	zs	bj	 hd
+2	ks
+3	zs      bj       xc
+
+分类：
+列级约束 		表级约束
+作用于一个列 		作用于一个列/多列
+列的后面			表的后面
+可以有多个约束（空格）   逗号,
+全部的6个		4个（主键 外键  唯一 检查）
+
+
+
+列级约束:
+create table student(
+ stuno number(3) primary key  ,
+ stuname varchar2(10) not null unique ,
+ stuaddress varchar2(20) default '陕西西安' check(length(stuaddress)>2),
+ stubid number(3)
+);
+
+
+主键：  非空+唯一
+insert into student values(1, 'zs','h北京',2) ;
+insert into student values(2, 'zs1','h北京',2) ;
+
+
+
+insert into student values(3, 'zs1','x北京',3) ;
+
+insert into student values(4, null,'y北京',4) ;
+
+insert into student values(5, 'xx','北京',5) ;
+-default代表使用 默认约束的值
+insert into student values(5, 'xx', default ,5) ;
+
+注意事项：
+	a.报错：违反唯一约束条件 可能主键报错 也可能唯一约束报错
+	b.如果有多个约束，default必须放在第一位
+	c.check约束： 如何编写 ：和使用where完全相同
+	d.唯一约束： 可以是Null,但不适用于Null(可以有多个null)
+
+
+create table student(
+ stuno number(3) primary key  ,
+ stuname varchar2(10) unique  ,
+ stuaddress varchar2(20)  default '陕西西安' check(length(stuaddress)>2) ,
+ stubid number(3)
+);
+
+
+insert into student values(2, null,default,1) ;
+
+
+insert into student values(3, null,default,1) ;
+
+
+约束命名
+	规范：约束类型_字段名
+主键：	PK_stuno
+检查约束：  CK_字段名
+唯一约束： UQ_字段名
+非空约束：  NN_字段名
+外键约束：  FK_子表_父表
+默认约束： 一般不需要命名
+
+加约束名： constraint 约束名  
+
+create table student(
+ stuno number(3) constraint PK_stuno    primary key  ,
+ stuname varchar2(10) constraint NN_stuname  not null  constraint  UQ_stuname  unique ,
+ stuaddress varchar2(20) default '陕西西安' constraint CK_stuaddress  check(length(stuaddress)>2),
+ stubid number(3)
+);
+
+
+insert into student values(1, 'zzz',default,1) ;
+
+注意事项：
+	约束名是 多个表公用的 (多个表中的约束 不能重名)
+
+
+create table student2(
+ id number(3) constraint PK_stuno    primary key  ,
+ name varchar2(10)
+);
+
+
+表级约束
+
+create table student2(
+ stuno number(3) ,
+ stuname varchar2(10)  ,
+ stuaddress varchar2(20) ,
+ stubid number(3),
+  constraint PK_sno primary key(stuno) ,
+  constraint UQ_sname_subid unique(stuname,stubid),
+  constraint CK_saddress check( length(stuAddress)>2)
+);
+
+外键
+
+create table student3(
+ stuno number(3) ,
+ stuname varchar2(10)  ,
+ stuaddress varchar2(20) ,
+ subid number(3)   
+);
+
+
+insert into student3(stuno,stuname,subid) values(1,'zs',1);
+insert into student3(stuno,stuname,subid) values(2,'ls',1);
+insert into student3(stuno,stuname,subid) values(3,'ww',2);
+
+create table sub
+(
+	sid  number(3),
+	sname   varchar2(10)
+);
+
+
+insert into sub values(1,'java');
+insert into sub values(2,'python');
+
+
+尝试插入非法数据：
+insert into student3(stuno,stuname,subid) values(4,'zl',3);
+
+
+
+
+给表加外键：
+	创建表的同时 增加外键
+drop table student3 ;
+
+
+create table student3(
+ stuno number(3) ,
+ stuname varchar2(10)  ,
+ stuaddress varchar2(20) ,
+ subid number(3)  ,
+ constraint FK_student3_sub foreign key(subid) references sub(sid) 
+);
+
+其中，解释： constraint FK_student3_sub foreign key(subid) references sub(sid) ;
+
+直接创建外建时报错：此列列表的【唯一关键字或主键】不匹配 ，含义是：外键所指向的 字段 必须先是 主键 或者唯一约束的键。
+
+
+定义外键 需要4个参数：  两个表名 ，两个字段名
+
+
+
+insert into student3(stuno,stuname,subid) values(1,'zs',1);
+insert into student3(stuno,stuname,subid) values(2,'ls',1);
+insert into student3(stuno,stuname,subid) values(3,'ww',2);
+
+
+drop table sub;
+
+create table sub
+(
+	sid  number(3) unique,
+	sname   varchar2(10)
+);
+insert into sub values(1,'java');
+insert into sub values(2,'python');
+
+
+
+
+insert into student3(stuno,stuname,subid) values(1,'zs',1);
+insert into student3(stuno,stuname,subid) values(2,'ls',1);
+insert into student3(stuno,stuname,subid) values(3,'ww',2);
+insert into student3(stuno,stuname,subid) values(4,'zl',3);
+
+
+
+外键含义：  A.a ->B.b字段，  a中的数据 必须来自于b中。   
+
+如果删除父表中  外键所指向的列， 2个策略：级联删除|级联置空
+
+
+drop table student3;
+create table student3(
+ stuno number(3) ,
+ stuname varchar2(10)  ,
+ stuaddress varchar2(20) ,
+ subid number(3)  ,
+ constraint FK_student3_sub foreign key(subid) references sub(sid)  on delete cascade【或set null 】
+);
+
+insert into student3(stuno,stuname,subid) values(1,'zs',1);
+insert into student3(stuno,stuname,subid) values(2,'ls',1);
+insert into student3(stuno,stuname,subid) values(3,'ww',2);
+
+级联删除
+drop table student3;
+create table student3(
+ stuno number(3) ,
+ stuname varchar2(10)  ,
+ stuaddress varchar2(20) ,
+ subid number(3)  ,
+ constraint FK_student3_sub foreign key(subid) references sub(sid)  on delete cascade
+);
+
+
+--
+级联置空
+drop table student3;
+create table student3(
+ stuno number(3) ,
+ stuname varchar2(10)  ,
+ stuaddress varchar2(20) ,
+ subid number(3)  ,
+ constraint FK_student3_sub foreign key(subid) references sub(sid)  on delete set null 
+);
+insert into student3(stuno,stuname,subid) values(1,'zs',1);
+insert into student3(stuno,stuname,subid) values(2,'ls',1);
+
+级联删除：当删除父表中的数据时，子表 会跟着删除相对应的数据；
+级联置空：当删除父表中的数据时，子表 会将 相对应的 那一字段的值设置为Null，其他字段不影响；
+
+
+外键使用建议：
+	1.当父表中没有相对应数据时，不要向子表增加数据(如果sub表没有编号为2的课程，那么子表student不要去选择2号课程)
+	2.不要更改父表的数据，导致子表孤立
+	3.建议：在创建外键时  直接设置成 级联删除 或级联置空
+	4.删除表？ 先删除子表，再删除父表
+
+追加约束：在创建表示忘了加约束，后续可以追加约束
+
+1.唯一、主键、检查、外键约束
+alter table 表名 add constraint 约束名  约束类型I
+
+
+create table student4(
+ stuno number(3) ,
+ stuname varchar2(10)  ,
+ stuaddress varchar2(20) ,
+ subid number(3) 
+);
+alter table student4 add constraint UQ_stuaddress4  unique(stuaddress);
+alter table student4 add constraint PK_stuno4  primary key (stuno );
+
+alter table student4 add constraint CK_stuname4  check(length(stuname)>2);
+
+alter table student4 add constraint FK_student4_sub   foreign key(subid) references sub(sid);
+
+
+不适用于 默认、非空
+alter table student4 add constraint NN_stuname  not null(stuname);
+alter table student4 add constraint DF_stuname  default 'hello' ;
+
+
+2. 默认、非空
+	
+alter table 表名 motidy  字段名 constraint 约束名  约束类型
+
+非空
+ 
+alter table student4  modify  stuname constraint NN_stuname4  not null ;
+
+默认（建议默认约束不起名字,不写constraint）
+alter table student4  modify  stuname  default '没名字'   ;
+
+
+删除约束：
+	alter table 表名  drop constraint 约束名;
+alter table student4  drop constraint UQ_stuaddress4;
+alter table student4  drop constraint PK_stuno4;
+alter table student4  drop constraint CK_stuname4;
+alter table student4  drop constraint FK_student4_sub;
+alter table student4  drop constraint NN_stuname4;
+
+	特殊情况： 
+		默认约束（删除默认约束： 将默认约束置为null）
+	alter table student4  modify  stuname  default null   ;
+
+
+
+
+
+
+
+
+
+
+
+--
+完整性约束：保证数据的正确性、相容性、防止数据冗余等。
+	域完整性： 列。数据类型，非空约束,检查约束，外键约束
+
+	实体完整性：行。主键约束、唯一约束
+
+	引用完整性：不同表之间。外键
+
+	自定义完整性：触发器(当执行换一个操作时，会自动触发另一个操作)。例如：自定义需求 学生的上学时间 必须在出生日期之后。
+
+
+
+三大范式NF
+	1NF:确保每列的原子性（不可再分）
+student
+	id	name	address
+	1	zs	陕西省西安市长安区
+	拆：
+	id	name	province   city  zone
+
+	2NF：
+		宏观：每张表只描述一件事情（例如，一个student表 描述的全部是学生字段）
+
+赖于 ：A->B，  
+		换种说法：“决定”的反义词， B->A  
+		微观：通过2NF定义：除了主键以外的其他字段，都依赖于主键
+
+a,b,c,d,e  
+
+	3NF:
+		
+		微观：除了主键以外的其他字段，都不传递依赖于主键
+A->B
+B->决定于A
+
+X->Y->Z： X传递决定了Z;   Z传递依赖于X
+
+
+
+a,	b,		,d	,	e  
+
+	
+100	:  100   a->  b->  c 
+100- >多张表？
+
+
+	注意：
+		要么满足第N范式，必须先满足第N-1范式。
+		三大范式 可以帮助我们 规范数据的设计，好处是 防止数据混乱、数据冗余（重复）
+		缺点： 很难严格排除出所有不满足的表，并且  难以拆分   ；会一定程度影响性能
+	x->拆？
+
+
+a
+select  ..from a;
+
+
+a-a+b+c
+
+select  ..a,b,c   where 关联查询  ，多表查询 会比单表查询更加 消耗性能。
+
+
+
+		建议：三大范式 只是一个建议，不必严格遵守。
+	实际使用时，需要“规范性”和“易用性、性能”间综合考虑
+
+	
+
+
+数据库设计软件：
+	Power Designer
+
+
+General:表名
+name:给用户看的，只是用于显示
+code:代码实际操作的
+
+
+在PD设计完毕后，可以自动生成代码：ctrl+G
+
+视图 ： 属于数据库对象之一
+	表、视图、序列、索引、同义词、触发器
+
+	视图，是一个虚表。建立在表的基础之上
+	注意：一张表，或多张表
+
+
+创建视图的语法：
+
+create  view 视图名
+as 
+	select ...语句
+	
+
+好处：
+	a.简化查询
+原始SQL:
+select *from X  ,Y where X.x = Y.y ;
+select *from emp e  ,dept d where e.deptno = d.deptno;
+
+
+
+select d.deptno 部门编号,e.empno,e.ename,e.sal,e.comm ,d.dname from emp e ,dept d   where  e.deptno =d.deptno and  d.deptno=20;
+
+用视图封装以上的查询结果：
+create  view  myempview
+as 
+	select d.deptno 部门编号,e.empno,e.ename,e.sal,e.comm ,d.dname from emp e ,dept d where e.deptno=d.deptno and  d.deptno=20; 
+
+
+
+
+
+用视图简化查询：
+select * from myempview ;
+	b.增加数据的安全性。可以将 其他开发人员 需要的某些字段 封装到一个视图中 交付
+
+
+操作视图： DML  +Query  和表完全一致
+
+注意：
+	某个用户在创建视图时，可能权限不足。需要授权。
+	如果在创建视图时，给某个字段起了别名，那么在视图中 就只能识别 该“别名”而不能识别原来真实的字段名。
+
+emp	20		->  empview(a1,b1,c1)
+
+
+
+通过sys 授予scott 创建视图的权限。
+	撤销revoke create view  from scott;
+	创建grant  xxxx to scott
+
+尝试修改视图时：update myempview set ename = 'hello' where  empno=7934 ;
+报错:无法修改与非键值保存表对应的列
+
+本次的原因：在二表关联时，忘了编写 连接条件
+select d.deptno 部门编号,e.empno,e.ename,e.sal,e.comm ,d.dname from emp e ,dept d   where  【e.deptno =d.deptno】 and  d.deptno=20;
+
+根本原因：在oracle中，如果是更新操作是 针对单表，可以批量更新。update  xxx set xx =xx where ;
+
+但如果是 “多张表联合更新” ，则必须明确，不能出现歧义；
+update ..emp \dept
+
+update myempview ;
+
+单表 可以任意更新 ；     一次性更新多张表，则必须唯一；
+
+
+update myempview set ename = 'hello' where  empno=7934 ;
+
+
+
+注意： 修改的视图(DML)，会影响原表。一般建议  对视图 仅仅进行查询操作，不要进行DML.
+
+
+建议：	如果update操作涉及了多张表，则很容易出现 异常；因此建议，update只对单表进行操作。
+
+
+
+
+drop  view myempview ;
+
+create view myempview
+as
+   select empno ,ename ,deptno from emp where deptno =20 ;
+
+
+
+视图选项a.
+create view 视图名
+as
+ select 语句..
+  with check option ;
+
+
+ with check option :限制对视图操作时，必须满足where子句
+
+
+drop  view myempview ;
+
+create view myempview
+as
+   select empno ,ename ,deptno from emp where deptno =20   with check option;
+
+
+b.强烈建议
+with read only ;
+
+视图只建议查看，不建议DML。因为对视图的操作，会影响原表。
+
+
+
+create view myempview
+as
+   select empno ,ename ,deptno from emp where deptno =20   with read only ;
+
+
+
+
+		简单视图				复杂视图
+
+表的数量		1				1/n
+函数		没有				有
+分组		没有				有
+
+
+
+create view xx
+as 
+select  sal+1000   from 一张表... group by  ..
+
+b.如果非要对视图进行增删改，还需要遵循一些严格的苛刻条件。
+	①当视图中存在以下之一时，不能Insert/update
+		group by 、distinct、组函数、列的定义为表达式
+
+	②当视图中存在以下之一时， 不能delete
+	  
+		group by 、distinct、rownum伪劣
+
+-->视图只查看，不要DML
+
+
+oracle 文字录屏
+开启 spool  e:\note.txt 
+
+sql.....
+
+关闭spool  off;
+
+事务
+	概念：作为单个逻辑工作单元执行的一系列操作
+	四大特性:ACID
+
+转账：
+	zs->ls
+	1000
+
+:update  :   zs -1000
+	     ls +1000
+
+	Atomicity原子性：要么都成功，要么都失败。
+
+
+	Consistency:一致性 :事务执行前后 ，总量保持一致
+
+
+	Isolation隔离性:各个事务并发执行时，彼此独立
+
+
+
+	Durability:持久性：持久化操作。
+
+
+事务的生命周期：
+	（MySQL: 自动提交，自动将每一条DML语句直接commit ）
+Oracle:手工提交
+	事务的开始标识：  第一条DML
+	 	 事务的中间过程： 各种DML操作
+	结束：
+		a.提交
+			i.显示提交：commit
+			ii.隐式提交（自动提交）：正常退出exit（ctrl+c）、DCL(grant ....to..., revoke ..from )、DDL(create ... ,drop ....)
+
+	
+		b.回滚
+			i.显示回滚：rollback
+			ii.隐式回滚：异常退出（宕机、断电）
+
+保存点savepoint:
+	打游戏：  10   ：  1 ,2(savepoint)  , 3,4,5 (savepoint) ,6,7,8  -->rollback
+
+	语法：  x a b    savepoint  保存点名字
+
+
+
+ insert into xx values(1,'zs');
+ insert into xx values(2,'ls');  
+
+savepoint initdate ;
+
+insert into xx values(3,'ww');
+ 
+rollback to savepoint initdate  ;
+
+
+
+事务的隔离级别：
+		多个事务会产生很多并发问题：
+		1.脏读：当一个事务正在访问数据，并对此数据进行了修改（1->2），但是这种修改【还没有提交到数据库(commit)】； 此时，另一个事务也在访问这个数据 。本质： 某个事务（客户端）读取到的数据是 过时的。
+		2.不可重复读： 在一个事务内（客户端）内，多次读取同一个数据，但结果不同。
+			本质：就是事务A拿到了 被其他事务B修改并提交后的数据 
+
+
+		3.幻读（虚读）：在一个事务内（客户端）内，多次读取同一批数据，但结果不同。
+
+
+	不可重复读和幻读的区别：
+		a.不可重复读指的是对于“同一条”数据的查询操作  a ->b
+		 幻读对于“多条数据”的查询操作，数据量数：  20条 -> 18条  
+		b.不可重复读：update
+		  幻读：insert|delete 
+
+
+四种隔离级别的程度 依次递进（解决 并发的效果，越来越 稳定） ，但是性能越来越低。
+	并发性 、可用性 本身就是矛盾的。 
+
+
+Oracle只支持其中两种：Read Committed（默认），Serializable  
+（oracle自身扩种了一种 read only，实际 read only隶属于 Serializable级别 ）
+
+切换四种隔离级别：
+	set transaction isolation level Serializable;
+
+
+切换read only：
+set transaction  read only ;
+
+MySQL 支持全部的四种
+
+
+
+
+

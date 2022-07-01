@@ -1,0 +1,59 @@
+# RocketMQ——Producer篇：发送普通消息
+
+以DefaultMQProducer.send(Message msg)方法为例，讲解Producer消息的发送逻辑，该方法最终调用DefaultMQProducerImpl.sendDefaultImpl(Message msg, CommunicationMode communicationMode, SendCallback sendCallback, long timeout)方法完成消息的发送处理，其中请求参数的默认值：communicationMode= CommunicationMode.SYNC（同步发送方式），sendCallback=null，timeout=3000。大致逻辑如下： 
+1、检查DefaultMQProducerImpl的ServiceState是否为RUNNING，若不是RUNNING状态则直接抛出MQClientException异常给调用者；
+
+2、校验Message消息对象的各个字段的合法性，其中Message对象的body的长度不能大于128KB；
+
+3、以Message消息中的topic为参数调用DefaultMQProducerImpl. **tryToFindTopicPublishInfo** (String topic)方法从topicPublishInfoTable: ConcurrentHashMap<String/* topic */, TopicPublishInfo>变量中获取TopicPublishInfo对象； 
+
+3.1）若没有对应的TopicPublishInfo对象，则创建一个新的TopicPublishInfo对象，并存入topicPublishInfoTable变量中（在该变量中有该topic的记录，表示该Producer在向NameServer获取到topic信息之后会为该topic创建本地消息队列MessageQueue对象），然后调用MQClientInstance.updateTopicRouteInfoFromNameServer(String topic)方法更新刚创建的TopicPublishInfo对象的变量值；对于第一次向NameServer获取该topic的TopicPublishInfo对象肯定是获取不到的，故该TopicPublishInfo对象的haveTopicRouterInfo等于false； 
+
+3.2）检查返回的TopicPublishInfo对象的haveTopicRouterInfo和messageQueueList: List<MessageQueue>队列，若haveTopicRouterInfo等于true或者TopicPublishInfo对象的messageQueueList:ListList<MessageQueue>变量不为空，则直接返回该TopicPublishInfo对象； 
+
+3.3）否则调用MQClientInstance.updateTopicRouteInfoFromNameServer (String topic, boolean isDefault, DefaultMQProducer defaultMQProducer)方法获取默认topic值"TBW102"的TopicPublishInfo对象，其中isDefault=true，defaultMQProducer等于自身的defaultMQProducer对象，在第一次向NameServer获取该topic的TopicPublishInfo对象时会出现此情况。若Broker开启了自动创建Topic功能，则在启动Broker时会自动创建TBW102的主题，不建议开启此功能，而应该采用手工创建的方式创建TOPIC；
+
+4、若上一步获取的TopicPublishInfo对象不为空，并且该对象的List<MessageQueue>队列也不为空，则执行下面的消息发送逻辑，否则抛出MQClientException异常，表示该topic在本地没有创建消息队列；
+
+
+
+5、设置消息重试次数以及超时时间，分别由参数DefaultMQProducer.retryTimesWhenSendFailed（默认为2）和DefaultMQProducer.sendMsgTimeout（默认为3000毫秒）设置；重试次数为retryTimesWhenSendFailed+1，超时时间为sendMsgTimeout+1000；当发送消息失败，在重试次数小于3和未到达4秒的超时时间，则再次发送消息；
+
+
+
+6、选择发送的Broker和QueueId，即选择MessageQueue对象。调用TopicPublishInfo.selectOneMessageQueue(String lastBrokerName)方法选择MessageQueue对象，若该消息是第一次发送则从TopicPublishInfo.messageQueueList:List<MessageQueue>中选择上一次发送消息使用的MessageQueue对象后面的一个MessageQueue对象，若已经是最后一个则又从列表第一个MessageQueue对象开始选择；（由TopicPublishInfo.sendWhichQueue来记录此次发送消息选择的是第几个MessageQueue对象）；否则选择上一次发送消息使用的MessageQueue对象后面的一个与上次不同BrokerName的MessageQueue对象；
+
+
+
+7、调用sendKernelImpl(Message msg, MessageQueue mq, CommunicationMode communicationMode, SendCallback sendCallback, long timeout)进行消息的发送工作； 
+7.1）根据入参MessageQueue对象的brokerName从MQClientInstance.brokerAddrTable获取主用Broker（BrokerID=0）的地址； 
+
+7.2）若该Broker地址为空，则再次调用tryToFindTopicPublishInfo(String topic)方法（详见第3步操作）从topicPublishInfoTable变量中获取TopicPublishInfo对象，然后在执行第7.1的操作获取主用Broker地址；若仍然为空则抛出MQClientException异常；否则继续下面的操作； 
+
+7.3）若消息内容大于规定的消息内容大小（由DefaultMQProducer.compressMsgBodyOverHowmuch参数指定，默认是4KB）之后就使用java.util.zip.DeflaterOutputStream进行对消息内容进行压缩； 
+
+7.4）若消息内容经过压缩则置sysFlag标志位从右往左第1个字节为1；若消息的property属性中TRAN_MSG字段不为空，并且是可解析为true的字符串，则将sysFlag标志位第3个字节为1； 
+
+7.5）在应用层实现CheckForbiddenHook接口，并可以调用DefaultMQProducerImpl.RegisterCheckForbiddenHook(CheckForbiddenHook checkForbiddenHook)方法来注册CheckForbiddenHook钩子，可以实现CheckForbiddenHook接口，该接口的方法是在消息发送前检查是否属于禁止消息。在此先检查是否注册CheckForbiddenHook钩子，若注册了则执行； 
+
+
+
+7.6)在应用层实现SendMessageHook接口可以调用DefaultMQProducerImpl.registerSendMessageHook(SendMessageHook hook)方法注册SendMessageHook钩子，实现该接口的类有两个方法，分别是消息发送前和消息发送后的调用。在此先检查是否注册SendMessageHook钩子，若注册了则执行sendMessageBefore方法；在发送结束之后在调用sendMessageAfter方法； 
+
+7.7)构建SendMessageRequestHeader对象，其中，该对象的defaultTopic变量值等于"TBW102", defaultTopicQueueNums变量值等于DefaultMQProducer.defaultTopicQueueNums值，默认为4，queueId等于MessageQueue对象的queueId； 
+
+7.8）调用MQClientAPIImpl.sendMessage(String addr, String brokerName,Message msg, SendMessageRequestHeader requestHeader, long timeoutMillis, CommunicationMode communicationMode, SendCallback sendCallback)进行消息的发送；在此方法中发送请求码为SEND_MESSAGE的RemotingCommand消息；根据通信模式（communicationMode=同步[SYNC]、异步[ASYNC]、单向[ONEWAY]）分别调用不同的方法，将消息内容发送到Broker。为了降低网络传输数量，设计了两种SendMessageRequestHeader对象，一种是对象的变量名用字母简写替代，类名是SendMessageRequestHeaderV2，一种是对象的变量名是完整的，类名是SendMessageRequestHeader。
+
+
+
+A）同步[SYNC]：在调用发送消息的方法之后，同步等待响应消息，响应信息达到之后调用MQClientAPIImpl.processSendResponse(String brokerName, Message msg, RemotingCommand response)方法处理响应消息，返回给上层调用者； 
+
+B）异步[ASYNC]：在发送消息之前，首先创建了内部匿名InvokeCallback类并实现operationComplete方法，并初始化ResponseFuture对象，其中InvokeCallback匿名类就是该对象的InvokeCallback变量值； 然后将该ResponseFuture对象以请求ID存入NettyRemotingAbstract.ResponseTable: ConcurrentHashMap<Integer /* opaque */, ResponseFuture>变量中；最后在收到响应消息之后以响应ID（即请求ID）从NettyRemotingAbstract. ResponseTable变量中取ResponseFuture对象，然后调用InvokeCallback类的operationComplete方法，完成回调工作； 
+
+C）单向[ONEWAY]：只负责将消息发送出去，不接受响应消息；
+
+
+
+
+
+8、对于同步方式发送消息，若未发送成功，并且Producer设置允许选择另一个Broker进行发送（参数DefaultMQProducer. retryAnotherBrokerWhenNotStoreOK指定，默认为false，不允许），则从第5步的检查发送失败次数和发送时间是否已经超过阀值开始重新执行；否则直接返回；
