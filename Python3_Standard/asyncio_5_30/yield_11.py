@@ -57,7 +57,7 @@ class Future(object):
         self.res = None
         self.flag = False
         self.callbaks = []
-        self._loop=loop
+        self._loop = loop
 
     def set_res(self, result):
         if self.flag:
