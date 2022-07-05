@@ -1,4 +1,81 @@
-# 1.Tracers List
+# 1.功能描述
+
+> 某些内核函数被调用的频率
+>
+> 什么代码路径会导致这个函数被调用
+>
+> 这个内核函数调用了哪些子函数
+>
+> 禁用抢占的代码路径造成的最高延时是多少
+
+>剖析器
+>
+>> 提供统计摘要
+>
+>跟踪器
+>
+>> 提供每个事件的细节
+
+| 剖析器         | 描述               |
+| -------------- | ------------------ |
+| function       | 内核函数统计分析   |
+| kprobe profile | 启用kprobe计数器   |
+| uprobe profile | 启用uprobe计数器   |
+| hist trigger   | 事件的自定义直方图 |
+
+| 跟踪器         | 描述                                          |
+| -------------- | --------------------------------------------- |
+| function       | 内核函数调用跟踪器                            |
+| tracepoints    | 内核函数静态检测, 事件跟踪器                  |
+| kprobes        | 内核函数动态检测, 事件跟踪器                  |
+| uprobes        | 用户级动态检测, 事件跟踪器                    |
+| function_graph | 内核函数调用跟踪, 通过子调用的层次图展示      |
+| wakeup         | 测量CPU调度器的最大延时                       |
+| wakeup_rt      | 测量实时(RT)任务的最大CPU调度器延时           |
+| irqsoff        | 用代码位置和延时跟踪IRQ关闭事件(中断禁用延时) |
+| preemptoff     | 跟踪有代码路径和延时的事件                    |
+| preemptirqsoff | 一个结合了irqsoff和preemptoof的跟踪器         |
+| blk            | 块I/O跟踪器(被blktrace使用)                   |
+| hwlat          | 硬件延时跟踪器: 可以检测外部扰动导致的延时    |
+| mmiotrace      | 跟踪一个模块对硬件的调用                      |
+| nop            | 一个特殊的跟踪器, 可以禁用其他跟踪器          |
+
+> 需要启用CONFIG_PREEMPTIRQ_EVENTS
+
+# 2.tracefs
+
+> Ftrace功能的接口是tracefs文件系统,挂载在/sys/kernel/tracing
+
+```
+mount -t tracefs tracefs /sys/kernel/tracing
+# 列出debugfs和tracefs
+mount -t debugfs,tracefs
+debugfs on /sys/kernel/debug type debugfs (rw,nosuid,nodev,noexec,relatime)
+tracefs on /sys/kernel/tracing type tracefs (rw,nosuid,nodev,noexec,relatime)
+```
+
+### tracefs内容
+
+| 文件                       | 权限 | 描述                                                |
+| -------------------------- | ---- | --------------------------------------------------- |
+| available_tracers          | r    | 列出可用的跟踪器                                    |
+| current_tracer             | rw   | 显示当前启用的跟踪器                                |
+| enabled_functions          | rw   | 启用函数剖析器                                      |
+| available_filter_functions | r    | 列出可跟踪的函数                                    |
+| set_ftrace_filter          | rw   | 选择要跟踪的函数                                    |
+| tracing_on                 | rw   | 启用/禁用输出环形缓冲区开关                         |
+| trace                      | rw   | 环形缓冲区                                          |
+| trace_pipe                 | r    | 跟踪器的输出,使用跟踪器和块作为输入                 |
+| trace_options              | rw   | 用于定制跟踪缓冲区输出的选项                        |
+| kprobe_events              | rw   | 启用kprobe配置                                      |
+| uprobe_events              | rw   | 启用uprobe配置                                      |
+| events                     | rw   | 事件跟踪器的控制文件: tracepoints, kprobes, uprobes |
+| options                    |      |                                                     |
+| instances                  | rw   | 并发用户的Ftrace实例                                |
+
+
+
+# Tracers List
 
 > **设置追踪器**
 >
@@ -20,7 +97,7 @@
 | branch         | This tracer can be configured when tracing likely/unlikely calls within the kernel. It will trace when a likely and unlikely branch is hit and if it was correct in its prediction of being correct. | 可以在跟踪内核中可能/不可能的调用时配置此跟踪程序。它将跟踪一个可能的和不可能的分支何时被击中，以及它的预测是否正确。 |
 | nop            | This is the "trace nothing" tracer. To remove all tracers from tracing simply echo "nop" into current_tracer. | 这就是“无迹”追踪器。要从跟踪中移除所有跟踪器，只需将"nop"回显到current_tracer中。 |
 
-# 2.Graph Function
+# Graph Function
 
 > **设置追踪函数** : 产生函数调用堆栈
 >
@@ -28,7 +105,7 @@
 >
 > echo do_sys_call > set_graph_notrace 禁用函数调用堆栈
 
-# 3.Event Tracing
+# Event Tracing
 
 > ```
 > echo sched_wakeup > set_event
