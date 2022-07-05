@@ -187,3 +187,16 @@ strings -t x test
 strings -e s test
 ```
 
+### ndisasm
+
+> https://www.nasm.us/
+>
+> > https://zhuanlan.zhihu.com/p/107186324
+>
+> https://github.com/gdabah/distorm
+>
+> > pip install distorm3 
+> >
+> > \#include \<Python\>: python3-devel 
+> >
+> > yasm: http://www.tortall.net/projects/yasm/releases/
