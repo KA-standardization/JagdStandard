@@ -73,6 +73,25 @@ tracefs on /sys/kernel/tracing type tracefs (rw,nosuid,nodev,noexec,relatime)
 | options                    |      |                                                     |
 | instances                  | rw   | 并发用户的Ftrace实例                                |
 
+```
+# 查看当前是否有Ftrace跟踪器在使用
+cat /sys/kernel/debug/tracing/current_tracer
+```
+
+# 3.Ftrace函数剖析器
+
+> 函数剖析器提供了关于内核函数调用的统计数据
+>
+> 研究哪些内核函数正在被调用,并确定哪些是最慢的.
+>
+> 内核选项: CONFIG_FUNCTION_PROFILER=y
+
+```
+cat /boot/config-5.16.0-kali7-arm64 |grep "CONFIG_FUNCTION_TRACER\|CONFIG_FUNCTION_GRAPH_TRACER\|CONFIG_STACK_TRACER\|CONFIG_DYNAMIC_FTRACE"
+# 使用函数剖析器来统计所有以tcp开头的内核函数
+
+```
+
 
 
 # Tracers List
