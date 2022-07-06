@@ -89,7 +89,12 @@ cat /sys/kernel/debug/tracing/current_tracer
 ```
 cat /boot/config-5.16.0-kali7-arm64 |grep "CONFIG_FUNCTION_TRACER\|CONFIG_FUNCTION_GRAPH_TRACER\|CONFIG_STACK_TRACER\|CONFIG_DYNAMIC_FTRACE"
 # 使用函数剖析器来统计所有以tcp开头的内核函数
-
+echo 'tcp*' > set_ftrace_filter 
+echo 1 > function_profile_enabled 
+sleep 5
+echo 0 > function_profile_enabled 
+head 100 trace_stat/function*
+echo > set_ftrace_filter
 ```
 
 

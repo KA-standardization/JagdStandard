@@ -191,7 +191,7 @@ strings -e s test
 
 > https://www.nasm.us/
 >
-> > https://zhuanlan.zhihu.com/p/107186324
+> > https://zhuanlan.zhihu.com/p/107186324 
 >
 > https://github.com/gdabah/distorm
 >
@@ -200,3 +200,33 @@ strings -e s test
 > > \#include \<Python\>: python3-devel 
 > >
 > > yasm: http://www.tortall.net/projects/yasm/releases/
+
+# IDA
+
+### 1.入门
+
+> Edit->Segments->Rebase Program: 修改IDA镜像的基址
+>
+> 使用二进制加载器的情形包括: 分析从网络数据包或日志文件中提取出来的ROM镜像和破解程序负载
+
+> id0: 是一个二叉树形式的数据库
+>
+> id1: 包含描述每个程序字节的标记
+>
+> id2: 
+>
+> nam: 包含与IDA的Names窗口中显示的给定程序位置有关的索引信息	
+>
+> til: 用于存储与一个给定数据库的本地类型定义有关的信息
+
+> 在有条件跳转位置终止的基本块可能会生成两种流
+>
+> > yes: 执行分支, 默认为绿色
+> >
+> > no: 不执行分支, 默认为红色
+>
+> 只有一个后继块的基本块, 默认为蓝色, 指向下一个即将执行的块
+
+> 给每一行添加行前缀,Options-->General-->Disassembly, 给每一个反汇编行添加虚拟地址
+>
+> 通常虚拟地址以[区域名称]:[虚拟地址]

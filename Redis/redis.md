@@ -1494,3 +1494,13 @@ rdb-save-incremental-fsync yes
 # active-defrag-max-scan-fields 1000
 ```
 
+```
+#             with redi.pipeline(transaction=False) as p:
+#                 for data in datas:
+#                     url_token = data['url_token']
+#                     data_str = json.dumps(data, ensure_ascii=False)
+#                     p.hset('zhihu:dong-feng-ri-chan-46', url_token, data_str)
+#                     p.sadd('zhihu:url_token', url_token)
+#                 p.execute()
+```
+
