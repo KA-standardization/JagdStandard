@@ -91,10 +91,50 @@ cat /boot/config-5.16.0-kali7-arm64 |grep "CONFIG_FUNCTION_TRACER\|CONFIG_FUNCTI
 # 使用函数剖析器来统计所有以tcp开头的内核函数
 echo 'tcp*' > set_ftrace_filter 
 echo 1 > function_profile_enabled 
-sleep 5
+sleep 5 # 设置剖析器粗略时间
 echo 0 > function_profile_enabled 
 head 100 trace_stat/function*
 echo > set_ftrace_filter
+```
+
+```
+#!/bin/bash
+debugfs=/sys/kernel/debug
+echo 1 > $debugfs/tracing/tracing_on
+# 如果未设置任何值, 所有的内核函数都会被剖析
+echo 'tcp*' > $debugfs/tracing/set_ftrace_filter
+echo 1 > $debugfs/tracing/function_profile_enabled
+sleep 10
+echo 0 > $debugfs/tracing/function_profile_enabled
+echo > $debugfs/tracing/set_ftrace_filter
+echo 0 > $debugfs/tracing/tracing_on
+
+Function函数名称                               Hit调用次数    Time函数总时间            Avg平均时间             s^2标准差
+  --------                               ---    ----            ---             ---
+  tcp_poll                            657807    87747.48 us     0.133 us        12.801 us   
+  tcp_stream_memory_free              631866    24538.54 us     0.038 us        0.059 us    
+  tcp_v4_rcv                            2207    21914.69 us     9.929 us        142.893 us  
+  tcp_v4_do_rcv                         2070    19161.19 us     9.256 us        126.754 us  
+  tcp_rcv_established                   1975    16519.24 us     8.364 us        99.751 us   
+  tcp_recvmsg                          45377    14630.49 us     0.322 us        0.609 us    
+  tcp_send_ack                          1205    11527.30 us     9.566 us        78.634 us   
+  tcp_recvmsg_locked                   45377    6891.807 us     0.151 us        0.406 us 
+```
+
+# 4.Ftrace函数跟踪
+
+```
+
+#!/bin/bash
+debugfs=/sys/kernel/debug
+echo nop > $debugfs/tracing/current_tracer
+echo 0 > $debugfs/tracing/tracing_on
+echo $$ > $debugfs/tracing/set_ftrace_pid
+echo function > $debugfs/tracing/current_tracer
+echo 'sched:sched_kthread_stop_ret' > $debugfs/tracing/set_event
+echo 1 > $debugfs/tracing/events/sched/sched_kthread_stop_ret/enable
+echo 1 > $debugfs/tracing/tracing_on
+exec "$@"
 ```
 
 
