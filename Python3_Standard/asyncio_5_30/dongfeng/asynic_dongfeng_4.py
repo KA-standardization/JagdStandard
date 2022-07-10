@@ -13,14 +13,8 @@ async def request(queue, url, headers):
         # response = requests.get(url, headers=headers, proxies=ZhiHuClient.get_ip(), timeout=3)
         response = requests.get("https://www.baidu.com", timeout=3)
         if response.status_code == 200:
-            res = response.json()
-            return res
-        # if res and res != -1:
-        #     datas = res['data']
-        #     url_token = url.split('/')[4]
-        #     for data in datas:
-        #         key = data['url_token']  # 拿到数据把json里的urltoken 洗出来当hash key
-        #         redis_cluster.hset(f'zhihu:ftest:{url_token}', key, json.dumps(data, ensure_ascii=False))
+            res = response.text
+
 
         else:
             queue.put(url)
@@ -67,4 +61,3 @@ if __name__ == '__main__':
     loop.run_until_complete(asyncio.wait(tasks, timeout=3.1))
     # print(queue)
     print("TIME: {}".format(time.time() - start_time))
-
