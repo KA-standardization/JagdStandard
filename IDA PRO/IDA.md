@@ -292,3 +292,12 @@ strings -e s test
 > >
 > > Jump-->Jump to Previous Position Esc
 
+### 4.数据类型和数据结构
+
+> 设置函数类型信息
+>
+> > Edit-->Functions-->Set type Y
+> >
+> > IDA传播来自函数原型的类型信息的能力并不仅限于IDA类型库中包含的库函数
+> >
+> > 只要明确设置函数的类型信息, IDA就可以传播你的数据库中任何函数的正式参数名称和数据类型

@@ -749,6 +749,11 @@ i18n.locale: "Zh-CN"
  9900  docker run -d --name kibana -e ELASTICSEARCH_HOSTS=http://10.0.24.100:9200 -p 5601:5601 kibana:7.13.1
  9901  docker ps
  9902  docker exec -it 7b9e98b11345 /bin/bash
+
+vi /etc/docker/daemon.json
+{
+    "registry-mirrors": ["https://docker.mirrors.ustc.edu.cn","http://hub-mirror.c.163.com"]
+}
 ```
 
 ### web go
