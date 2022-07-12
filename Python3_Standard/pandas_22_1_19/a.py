@@ -44,9 +44,9 @@ for k in key_1:
         else:
             l4.append(0)
 
-df2['业'] = l
-df2['务'] = l2
-df2['事'] = l3
-df2['逼'] = l4
+df2['aa'] = l
+df2['bb'] = l2
+df2['cc'] = l3
+df2['dd'] = l4
 
 df2.to_excel('./r2.xlsx')
