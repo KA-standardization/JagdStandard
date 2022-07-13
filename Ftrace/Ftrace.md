@@ -174,6 +174,68 @@ echo 0 > tracing_on
 ```
 
 > 选项
+>
+> > 提供定制输出的选项, 可以从trace_options文件或options目录中控制输出
+
+```
+# Ex. 禁用flags列
+echo 0 > options/irq-info
+#           TASK-PID     CPU#     TIMESTAMP  FUNCTION
+#              | |         |         |         |
+      prlshprint-1152    [001]   2931.727815: __arm64_sys_clock_nanosleep <-invoke_syscall
+
+echo 1 > options/irq-info
+#                                _-----=> irqs-off
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| /     delay
+#           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
+#              | |         |   ||||      |         |
+      prlshprint-1152    [001] ....  2931.727815: __arm64_sys_clock_nanosleep <-invoke_syscall
+
+```
+
+```
+annotate         display-graph       funcgraph-proc    hex              raw          test_nop_accept
+bin              event-fork          funcgraph-tail    irq-info         record-cmd   test_nop_refuse
+blk_cgname       funcgraph-abstime   func-no-repeats   latency-format   record-tgid  trace_printk
+blk_cgroup       funcgraph-cpu       func_stack_trace  markers          sleep-time   userstacktrace
+blk_classic      funcgraph-duration  function-fork     overwrite        stacktrace   verbose
+block            funcgraph-irqs      function-trace    pause-on-trace   sym-addr
+context-info     funcgraph-overhead  graph-time        printk-msg-only  sym-offset
+disable_on_free  funcgraph-overrun   hash-ptr          print-parent     sym-userobj
+```
+
+> 跟踪点
+>
+> > tracepoint: 是内核的静态检测工具
+> >
+> > 跟踪点只是内核源代码中的跟踪函数, 它们是从定义和格式化其参数的跟踪事件接口中被使用
+>
+> 跟踪事件在tracefs中可见, 并与Ftrace共享输出和控制文件
+
+```
+alarmtimer    error_report    interconnect  napi            regulator   tegra_apb_dma
+avc           ext4            iocost        neigh           rpm         thermal
+block         fib             iomap         net             rpmh        thermal_power_allocator
+bpf_test_run  fib6            iommu         netlink         rseq        timer
+bpf_trace     filelock        io_uring      oom             rtc         udp
+bridge        filemap         ipi           page_isolation  sched       v4l2
+cgroup        fs_dax          irq           pagemap         scmi        vb2
+clk           ftrace          jbd2          page_pool       scsi        virtio_gpu
+cma           gpio            kmem          percpu          signal      vmscan
+compaction    hda             kvm           power           skb         wbt
+cpuhp         hda_controller  libata        printk          smbus       workqueue
+cros_ec       hda_intel       mdio          pwm             sock        writeback
+devfreq       header_event    migrate       qdisc           spi         xdp
+devlink       header_page     mmap          random          swiotlb     xhci-hcd
+dma_fence     huge_memory     mmap_lock     ras             sync_trace
+drm           hwmon           mmc           raw_syscalls    syscalls
+emulation     i2c             module        rcu             task
+enable        initcall        mptcp         regmap          tcp
+
+```
 
 
 
