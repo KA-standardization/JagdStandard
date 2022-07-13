@@ -88,6 +88,7 @@ cat /sys/kernel/debug/tracing/current_tracer
 
 ```
 cat /boot/config-5.16.0-kali7-arm64 |grep "CONFIG_FUNCTION_TRACER\|CONFIG_FUNCTION_GRAPH_TRACER\|CONFIG_STACK_TRACER\|CONFIG_DYNAMIC_FTRACE"
+# (hdx,y) x表示硬盘号，y表示分区号
 # 使用函数剖析器来统计所有以tcp开头的内核函数
 echo 'tcp*' > set_ftrace_filter 
 echo 1 > function_profile_enabled 
@@ -193,19 +194,57 @@ echo 1 > options/irq-info
 #           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
 #              | |         |   ||||      |         |
       prlshprint-1152    [001] ....  2931.727815: __arm64_sys_clock_nanosleep <-invoke_syscall
-
 ```
 
-```
-annotate         display-graph       funcgraph-proc    hex              raw          test_nop_accept
-bin              event-fork          funcgraph-tail    irq-info         record-cmd   test_nop_refuse
-blk_cgname       funcgraph-abstime   func-no-repeats   latency-format   record-tgid  trace_printk
-blk_cgroup       funcgraph-cpu       func_stack_trace  markers          sleep-time   userstacktrace
-blk_classic      funcgraph-duration  function-fork     overwrite        stacktrace   verbose
-block            funcgraph-irqs      function-trace    pause-on-trace   sym-addr
-context-info     funcgraph-overhead  graph-time        printk-msg-only  sym-offset
-disable_on_free  funcgraph-overrun   hash-ptr          print-parent     sym-userobj
-```
+> echo print-parent > trace_options
+
+| option             | desc                                                         |                                                              |
+| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| annotate           | It is sometimes confusing when the CPU buffers are full and one CPU buffer had a lot of events recently, thus a shorter time frame, were another CPU may have only had a few events, which lets it have older events. When the trace is reported, it shows the oldest events first,and it may look like only one CPU ran (the one with the oldest events). When the annotate option is set, it will display when a new CPU buffer started | 当CPU缓冲区满了，一个CPU缓冲区最近有很多事件，因此时间更短，而另一个CPU可能只有几个事件，这让它有更早的事件时，有时会令人困惑。当报告跟踪时，它首先显示最老的事件，看起来可能只运行了一个CPU(具有最老事件的CPU)。当设置了annotate选项时，它将在新的CPU缓冲区启动时显示 |
+| bin                | This will print out the formats in raw binary.               | 这将打印出原始二进制格式。                                   |
+| blk_cgname         |                                                              |                                                              |
+| blk_cgroup         |                                                              |                                                              |
+| blk_classic        | Shows a more minimalistic output.                            | 显示更简约的输出。                                           |
+| block              | When set, reading trace_pipe will not block when polled.     | 当设置该参数时，读取trace_pipe将不会在轮询时阻塞。           |
+| context-info       | Show only the event data. Hides the comm, PID, timestamp, CPU, and other useful data. | 只显示事件数据。隐藏通信、PID、时间戳、CPU等有用数据。       |
+| disable_on_free    | When the free_buffer is closed, tracing will stop (tracing_on set to 0). | 当free_buffer关闭时，跟踪将停止(tracing_on设置为0)。         |
+| display-graph      | When set, the latency tracers (irqsoff, wakeup, etc) will use function graph tracing instead of function tracing. | 当设置延迟跟踪器(irqsoff, wakeup等)时，将使用函数图跟踪而不是函数跟踪。 |
+| event-fork         | When set, tasks with PIDs listed in set_event_pid will have the PIDs of their children added to set_event_pid when those tasks fork. Also, when tasks with PIDs in set_event_pid exit, their PIDs will be removed from the file. | 当设置该参数时，在set_event_pid中列出pid的任务将在其子任务分叉时将其pid添加到set_event_pid中。此外，当pid在set_event_pid中的任务退出时，它们的pid将从文件中删除。 |
+| funcgraph-abstime  | When set, the timestamp is displayed at each line.           | 设置后，时间戳将显示在每一行。                               |
+| funcgraph-cpu      | When set, the CPU number of the CPU where the trace occurred is displayed. | 设置后，将显示跟踪发生的CPU的CPU号。                         |
+| funcgraph-duration | At the end of each function (the return) the duration of the amount of time in the function is displayed in microseconds. | 在每个函数(返回)的末尾，函数中时间的持续时间以微秒为单位显示。 |
+| funcgraph-irqs     | When disabled, functions that happen inside an interrupt will not be traced. | 当被禁用时，发生在中断内部的函数将不会被跟踪。               |
+| funcgraph-overhead | When set, if the function takes longer than A certain amount, then a delay marker is displayed. See "delay" above, under the header description. | 当设置时，如果函数花费的时间超过一定的数量，那么将显示一个延迟标记。参见上面的“延迟”，标题描述下面。 |
+| funcgraph-overrun  | When set, the "overrun" of the graph stack is displayed after each function traced. The overrun, is when the stack depth of the calls is greater than what is reserved for each task. Each task has a fixed array of functions to trace in the call graph. If the depth of the calls exceeds that, the function is not traced. The overrun is the number of functions missed due to exceeding this array. | 设置后，图形堆栈的“溢出”显示在每个函数跟踪后。溢出是指调用的堆栈深度大于为每个任务保留的堆栈深度。在调用图中，每个任务都有一个要跟踪的固定函数数组。如果调用的深度超过该值，则不跟踪该函数。溢出是由于超出这个数组而错过的函数的数量。 |
+| funcgraph-proc     | Unlike other tracers, the process' command line is not displayed by default, but instead only when a task is traced in and out during a context switch. Enabling this options has the command of each process displayed at every line. | 与其他跟踪程序不同，进程的命令行在默认情况下不会显示，而是只在上下文切换期间进进出出跟踪任务时才会显示。启用此选项将在每行显示每个进程的命令。 |
+| funcgraph-tail     | When set, the return event will include the function that it represents. By default this is off, and only a closing curly bracket "}" is displayed for the return of a function. | 设置后，返回事件将包括它所表示的函数。默认情况下，这是关闭的，并且只在函数返回时显示右花括号“}”。 |
+| func-no-repeats    |                                                              |                                                              |
+| func_stack_trace   | When set, a stack trace is recorded after every function that is recorded. NOTE! Limit the functions that are recorded before enabling this, with "set_ftrace_filter" otherwise the system performance will be critically degraded. Remember to disable this option before clearing the function filter. | 设置后，在记录的每个函数之后记录堆栈跟踪。注意!使用“set_ftrace_filter”限制在启用此功能之前记录的功能，否则系统性能将严重下降。记得在清除函数过滤器之前禁用此选项。 |
+| function-fork      | When set, tasks with PIDs listed in set_ftrace_pid will have the PIDs of their children added to set_ftrace_pid when those tasks fork. Also, when tasks with PIDs in set_ftrace_pid exit, their PIDs will be removed from the file. | 当设置该参数时，在set_ftrace_pid中列出pid的任务在其子任务分叉时，其子任务的pid将被添加到set_ftrace_pid中。此外，当pid在set_ftrace_pid中的任务退出时，它们的pid将从文件中删除。 |
+| function-trace     | The latency tracers will enable function tracing if this option is enabled (default it is). When it is disabled, the latency tracers do not trace functions. This keeps the overhead of the tracer down 	    when performing latency tests. | 如果这个选项被启用(默认是)，延迟跟踪器将启用函数跟踪。当它被禁用时，延迟跟踪器不会跟踪函数。这将在执行延迟测试时降低跟踪程序的开销。 |
+| graph-time         | When running function profiler with function graph tracer, to include the time to call nested functions. When this is not set, the time reported for the function will only include the time the function itself executed for, not the time for functions that it called. | 当使用函数图跟踪器运行函数分析器时，要包括调用嵌套函数的时间。如果不设置此参数，则报告的函数时间将只包括函数本身的执行时间，而不包括它所调用的函数的时间。 |
+| hash-ptr           |                                                              |                                                              |
+| hex                | Similar to raw, but the numbers will be in a hexadecimal format. | 类似于raw，但数字将采用十六进制格式。                        |
+| irq-info           | Shows the interrupt, preempt count, need resched data. When disabled. | 显示中断，抢占计数，需要重新扫描的数据。当禁用。             |
+| latency-format     | This option changes the trace output. When it is enabled,the trace displays additional information about the latency, as described in "Latency trace format". | 此选项更改跟踪输出。当它被启用时，跟踪将显示关于延迟的附加信息，如“延迟跟踪格式”中所述。 |
+| markers            | When set, the trace_marker is writable (only by root). When disabled, the trace_marker will error with EINVAL on write. | 设置trace_marker时，trace_marker是可写的(仅对root可写)。当禁用时，trace_marker将在写入时发生EINVAL错误。 |
+| overwrite          | This controls what happens when the trace buffer is full. If "1" (default), the oldest events are discarded and overwritten. If "0", then the newest events are discarded. | 这将控制跟踪缓冲区满时发生的情况。如果是"1"(默认)，最早的事件将被丢弃并覆盖。如果是“0”，则丢弃最新的事件。 |
+| pause-on-trace     |                                                              |                                                              |
+| printk-msg-only    | When set, trace_printk()s will only show the format and not their parameters (if trace_bprintk() or trace_bputs() was used to save the trace_printk()). | 设置后，trace_printk()将只显示格式而不显示它们的参数(如果使用trace_bprintk()或trace_bputs()来保存trace_printk())。 |
+| print-parent       | On function traces, display the calling (parent) function as well as the function being traced. | 在函数跟踪中，显示调用(父)函数以及被跟踪的函数。             |
+| raw                | This will display raw numbers. This option is best for use with user applications that can translate the raw numbers better than having it done in the kernel. | 这将显示原始数字。这个选项最适合用于能够更好地转换原始数字的用户应用程序，而不是在内核中完成。 |
+| record-cmd         | When any event or tracer is enabled, a hook is enabled in the sched_switch trace point to fill comm cache with mapped pids and comms. But this may cause some overhead, and if you only care about pids, and not the name of the task, disabling this option can lower the impact of tracing. See "saved_cmdlines". | 当启用任何事件或跟踪程序时，将在sched_switch跟踪点中启用一个钩子，以使用映射的pid和comm填充通信缓存。但这可能会导致一些开销，如果您只关心pid，而不关心任务的名称，禁用此选项可以降低跟踪的影响。看到“saved_cmdlines”。 |
+| record-tgid        | When any event or tracer is enabled, a hook is enabled in the sched_switch trace point to fill the cache of mapped Thread Group IDs (TGID) mapping to pids. See "saved_tgids". | 当启用任何事件或跟踪程序时，将在sched_switch跟踪点中启用一个钩子，以填充映射到pid的映射线程组id (TGID)的缓存。看到“saved_tgids”。 |
+| sleep-time         | When running function graph tracer, to include the time a task schedules out in its function. When enabled, it will account time the task has been scheduled out as part of the function call. | 在运行函数图跟踪程序时，在其函数中包含任务调度的时间。启用时，它将记录任务已被调度出的时间，作为函数调用的一部分。 |
+| stacktrace         | When set, a stack trace is recorded after any trace event is recorded. | 设置后，将在记录任何跟踪事件之后记录堆栈跟踪。               |
+| sym-addr           | this will also display the function address as well as the function name | 这还将显示函数地址和函数名                                   |
+| sym-offset         | Display not only the function name, but also the offset in the function. For example, instead of 	  seeing just "ktime_get", you will see "ktime_get+0xb/0x20". | 不仅显示函数名，还显示函数中的偏移量。例如，您将看到"ktime_get+0xb/0x20"，而不是只看到"ktime_get"。 |
+| sym-userobj        | when user stacktrace are enabled, look up which object the address belongs to, and print a relative address. This is especially useful when ASLR is on, otherwise you don't get a chance to resolve the address to object/file/line after the app is no longer running | 当启用用户堆栈跟踪时，查找该地址属于哪个对象，并打印相对地址。当ASLR打开时，这尤其有用，否则在应用程序不再运行后，你就没有机会将地址解析到object/file/line |
+| test_nop_accept    |                                                              |                                                              |
+| test_nop_refuse    |                                                              |                                                              |
+| trace_printk       | Can disable trace_printk() from writing into the buffer.     | 可以禁用trace_printk()写入缓冲区。                           |
+| userstacktrace     | This option changes the trace. It records a stacktrace of the current user space thread after each trace event. | 此选项更改跟踪。它在每个跟踪事件之后记录当前用户空间线程的堆栈跟踪。 |
+| verbose            | This deals with the trace file when the latency-format option is enabled. | 这将在启用延迟格式选项时处理跟踪文件。                       |
 
 > 跟踪点
 >

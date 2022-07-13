@@ -1,3 +1,4 @@
+yum install openssl openssl-devel -y
 nikto -host 10.0.17.100 # 61.151.167.89 mp.weixin.qq.com
 ' or 1=1 --+
 sqlmap -u "http;//10.0.17.100/results.php" --data="swarch=1" 
