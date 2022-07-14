@@ -174,6 +174,8 @@ cat trace_pipe
 echo 0 > tracing_on
 ```
 
+#### Option
+
 > 选项
 >
 > > 提供定制输出的选项, 可以从trace_options文件或options目录中控制输出
@@ -246,6 +248,8 @@ echo 1 > options/irq-info
 | userstacktrace     | This option changes the trace. It records a stacktrace of the current user space thread after each trace event. | 此选项更改跟踪。它在每个跟踪事件之后记录当前用户空间线程的堆栈跟踪。 |
 | verbose            | This deals with the trace file when the latency-format option is enabled. | 这将在启用延迟格式选项时处理跟踪文件。                       |
 
+#### Tracepoint
+
 > 跟踪点
 >
 > > tracepoint: 是内核的静态检测工具
@@ -275,6 +279,42 @@ emulation     i2c             module        rcu             task
 enable        initcall        mptcp         regmap          tcp
 
 ```
+
+#### Filter
+
+> field operator value
+>
+> > 数字运算符: == != < <= > >= &
+> >
+> > 字符串运算符: == != ~
+> >
+> > 通配符: * ? []
+> >
+> > 布尔表达式使用 && || 进行组合
+
+```
+# bytes字段大于64KB事件, 输出结果中包含较大的I/O统计
+echo 'bytes > 65536' > events/block/block_rq_insert/filter
+cat trace_pipe
+echo 0 > events/block/block_rq_insert/filter
+```
+
+#### Trigger
+
+> 触发器可在事件被触发时运行额外的跟踪命令
+>
+> 该命令可以启用或禁用其他跟踪器, 打印栈跟踪, 保存跟踪缓冲区的快照
+
+```
+# 当一个大于64KB的块I/O排队时, 禁用跟踪traceoff
+echo 'traceoff if bytes > 65535' > events/block/block_rq_insert/trigger
+```
+
+# Kprobes
+
+
+
+
 
 
 
