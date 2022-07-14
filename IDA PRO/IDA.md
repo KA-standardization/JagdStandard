@@ -201,7 +201,11 @@ strings -e s test
 > >
 > > yasm: http://www.tortall.net/projects/yasm/releases/
 
-# IDA
+# IDA 
+
+```
+x86_64-w64-mingw32-gcc.exe -o h32.exe .\heap_array.c
+```
 
 ### 1.入门
 
@@ -301,3 +305,77 @@ strings -e s test
 > > IDA传播来自函数原型的类型信息的能力并不仅限于IDA类型库中包含的库函数
 > >
 > > 只要明确设置函数的类型信息, IDA就可以传播你的数据库中任何函数的正式参数名称和数据类型
+
+##### 堆分配的数组
+
+> 堆分配数组是使用一个动态内存分配函数(C: malloc, C++: new)分配的
+>
+> > 从编译器的角度讲,处理堆分配的数组的主要区别在于, 它必须根据内存分配函数返回的地址值, 生成对数组的所有引用
+>
+> 关于数组的使用, 我们能够得出的唯一确定的结论是, 只有当变量被用作数组索引时, 才最容易确定数组的存在
+>
+> > 要访问数组中的元素, 首先需要用索引乘以数组元素的大小,计算出相应元素的偏移量, 然后将得到的偏移量与数组的基址相加, 得到数组元素的访问地址
+
+```c
+#include <stdlib.h>
+
+int main() {
+    int *heapArray = (int *) malloc(3 * sizeof(int));
+    int index = 2;
+    heapArray[0] = 10;
+    heapArray[1] = 20;
+    heapArray[2] = 30;
+    heapArray[index] = 100;
+}
+```
+
+```
+.text:0000000000401550 ; int __cdecl main(int argc, const char **argv, const char **envp)
+.text:0000000000401550                 public main
+.text:0000000000401550 main            proc near               ; CODE XREF: __tmainCRTStartup+242↑p
+.text:0000000000401550                                         ; DATA XREF: .pdata:000000000040506C↓o
+.text:0000000000401550
+.text:0000000000401550 index           = dword ptr -0Ch
+					   数组的起始地址(由EAX寄存器中的malloc返回)存储在局部变量heapArray中
+.text:0000000000401550 heapArray       = qword ptr -8
+.text:0000000000401550
+.text:0000000000401550                 push    rbp
+.text:0000000000401551                 mov     rbp, rsp
+.text:0000000000401554                 sub     rsp, 30h
+.text:0000000000401558                 call    __main
+                                       对堆分配的数组而言, 传递给内存分配函数的参数, 即表示分配给数组的字节总数
+                                       0Ch传递给malloc
+.text:000000000040155D                 mov     ecx, 0Ch        ; Size
+.text:0000000000401562                 call    malloc
+.text:0000000000401567                 mov     [rbp+heapArray], rax
+.text:000000000040156B                 mov     [rbp+index], 2
+									   每一次访问数组时,首先必须读取heapArray的内容,以获得数组的基址, 
+									   然后再在它上面加上一个偏移值, 计算出数组中对应元素的地址
+.text:0000000000401572                 mov     rax, [rbp+heapArray]
+									   0+
+.text:0000000000401576                 mov     dword ptr [rax], 0Ah
+									   每一次访问数组时,首先必须读取heapArray的内容,以获得数组的基址, 
+									   然后再在它上面加上一个偏移值, 计算出数组中对应元素的地址
+.text:000000000040157C                 mov     rax, [rbp+heapArray]
+.text:0000000000401580                 add     rax, 4
+									   4+
+.text:0000000000401584                 mov     dword ptr [rax], 14h
+									   每一次访问数组时,首先必须读取heapArray的内容,以获得数组的基址, 
+									   然后再在它上面加上一个偏移值, 计算出数组中对应元素的地址
+.text:000000000040158A                 mov     rax, [rbp+heapArray]
+.text:000000000040158E                 add     rax, 8
+                                       8+
+.text:0000000000401592                 mov     dword ptr [rax], 1Eh
+.text:0000000000401598                 mov     eax, [rbp+index]
+.text:000000000040159B                 cdqe
+.text:000000000040159D                 lea     rdx, ds:0[rax*4]
+.text:00000000004015A5                 mov     rax, [rbp+heapArray]
+.text:00000000004015A9                 add     rax, rdx
+.text:00000000004015AC                 mov     dword ptr [rax], 64h ; 'd'
+.text:00000000004015B2                 mov     eax, 0
+.text:00000000004015B7                 add     rsp, 30h
+.text:00000000004015BB                 pop     rbp
+.text:00000000004015BC                 retn
+.text:00000000004015BC main            endp
+```
+
