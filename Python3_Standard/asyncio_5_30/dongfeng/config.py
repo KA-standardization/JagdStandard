@@ -21,18 +21,4 @@ class ZhiHuClient(object):
 
     @classmethod
     def get_ip(cls):
-        t = int(time.time())
-        if t % 2 == 0:
-            proxies = {
-                'http': 'http://proxy:orderId=O21072616193919678168&sign=3014798228629a3c2ee159b7a0bd35c7&time=1627290066&pid=-1&cid=@proxy-service2.vpsnb.net:14223',
-                'https': 'http://proxy:orderId=O21072616193919678168&sign=3014798228629a3c2ee159b7a0bd35c7&time=1627290066&pid=-1&cid=@proxy-service2.vpsnb.net:14223'
-            }
-            return proxies
-        else:
-            limit_num = int(redis_cluster.get('public:iproxy:91vps_num')) - 1
-            xy = redis_cluster.get(f'public:iproxy:91vps:ip_{random.randint(0, limit_num)}')
-            proxies = {
-                'http': 'http://' + xy,
-                'https': 'http://' + xy,
-            }
-            return proxies
+        pass
