@@ -312,9 +312,79 @@ echo 'traceoff if bytes > 65535' > events/block/block_rq_insert/trigger
 
 # 5.Kprobes
 
+> kprobes用于内核动态检测, kprobes创建kprobe事件供跟踪器使用, 它与Ftrace共享tracefs输出和控制文件,
+>
+> kprobes可做更多的定制, 可以放在函数偏移量(单个指令)上, 并可以报告函数参数和返回值
 
+### 事件跟踪
 
+```
+# 使用kprobes来检测do_nanosleep()内核函数
+# kprobes的创建和删除是通过在kprobe_events上添加特殊语法实现的
+# 字符串p:brendan do_nanosleep为内核符号do_nanosleep()创建了一个名为brendan的探针(p:)
+echo 'p:brendan do_nanosleep' >> kprobe_events
+echo 1 > events/kprobes/brendan/enable
+cat trace_pipe
+# 字符串"-:brendan"删除了名为brendan的探针
+echo 0 > events/kprobes/brendan/enable
+echo '-:brendan' >> kprobe_events
+```
 
+> kprobes语法: https://kernel.org/doc/Documentation/trace/kprobetrace.txt
+
+### 参数
+
+> kprobes可以检查函数的参数的返回值
+
+```
+# do_nanosleep() kernel/time/hrtimer.c
+# 使用寄存器名称的等效kprobe定义
+# echo 'p:brendan do_nanosleep hrtimer_sleeper=%di hrtimer_mode=%si' >> kprobe_events
+echo 'p:brendan do_nanosleep hrtimer_sleep=$arg1 hrtimer_mode=$arg2' >> kprobe_events
+echo 1 > events/kprobes/brendan/enable
+cat trace_pipe
+echo 0 > events/kprobes/brendan/enable
+echo '-:brendan' >> kprobe_events
+```
+
+### 返回值
+
+> kretprobes可以使用返回值得特殊别名$retval
+
+```
+echo 'r:brendan do_nanosleep ret=$retval' >> kprobe_events
+echo 1 > events/kprobes/brendan/enable
+# 返回ret=0x0 返回值为0表示成功
+cat trace_pipe
+echo 0 > events/kprobes/brendan/enable
+echo '-:brendan' >> kprobe_events
+```
+
+### 过滤器和触发器
+
+```
+echo 'r:brendan do_nanosleep ret=$retval' >> kprobe_events
+echo 'ret != 1' > events/kprobes/brendan/filter
+# 只跟踪ret!=1的do_nanosleep()调用
+```
+
+### kprobe剖析
+
+> 当kprobe被启用, Ftrace对其事件进行计数
+
+```
+cat kprobe_profile
+brendan 探针名           0 命中数              0 未命中数
+探针被命中后来遇到错误且没有被记录(未命中)
+```
+
+# 6.Uprobes
+
+> uprobes用于用户级动态检测, uprobes创建uprobe事件供跟踪器使用, 它与Ftrace共享tracefs输出和控制文件,
+
+### 事件跟踪
+
+> uprobes语法: https://kernel.org/doc/Documentation/trace/uprobetracer.txt
 
 
 
