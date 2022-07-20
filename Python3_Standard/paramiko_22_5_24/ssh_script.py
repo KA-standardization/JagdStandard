@@ -51,5 +51,7 @@ if __name__ == '__main__':
 
     main(
         hosts,
-        'df -h'
+        # 'df -h'
+        'start'
     )
+
