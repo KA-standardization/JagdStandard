@@ -1504,3 +1504,52 @@ rdb-save-incremental-fsync yes
 #                 p.execute()
 ```
 
+# tmp
+
+```
+# RDB
+save 60 10000 # 60S内对10000个key发生修改 
+进入redis-clent: save(同步) 或bgsave(异步)
+
+# AOF(append-only-file)
+appendonly yes
+	anppendfsync always 		# in-time
+	anppendfsync everysec		# 1S一次同步
+	anppendfsync no				# 
+# Ex.	
+set abc 123
+	*3		# len($1 $2 $3)
+	$3		# len("set")
+	set
+	$3		# len("abc")
+	abc
+	$3		# len("123")
+	123
+AOF重写频率 bgrewriteaof
+auto-aof-rewrite-min-size 64mb	# aof文件达到64M会重写
+auto-aof-rewrite-percentage 100 # aof文件自上一次重写后大小增加了100%再触发重写
+
+# aof rdb混合 aof命令变为2进制存储
+aof-use-rdb-preamble yes
+clent: bgrewriteaof
+
+注释 save * 就不会生成持久化RDB文件了
+
+supervisor
+
+# 主从复制风暴
+从节点重启，主节点会复制一份RDB快照到从节点 
+	m
+s0 s1 s2 s3 s4
+变为树状
+	m
+s0 s1
+	s2 s3
+	s4
+
+# {aaa}参与hash soltji'su
+mset {aaa}:1:name kaiser {aaa}:1:age 9
+
+redlock
+```
+
