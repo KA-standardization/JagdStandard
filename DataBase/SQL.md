@@ -199,7 +199,7 @@
   #derived:衍生查询(使用到了临时表)
   	a.在from子查询中只有一张表
   		EXPLAIN SELECT cr.cname FROM (SELECT * FROM course WHERE tid IN(1,2)) cr;
-  	b在from子查询中， 如果有table1 union table2 ，则table1 就是derived,table2就是union
+  	b.在from子查询中， 如果有table1 union table2 ，则table1 就是derived,table2就是union
   		EXPLAIN SELECT cr.cname FROM (SELECT * FROM course WHERE tid=1 UNION SELECT * FROM course WHERE tid=2) cr;
   #union result :告知开发人员，那些表之间存在union查询
   ```
@@ -686,12 +686,12 @@
 
 * 操作类型：
   	a.读锁（**共享锁**）：对同一个数据，多个读操作可以同时进行，互不干扰。
-   b.写锁（**互斥锁**）：如果当前写操作没有完成，则无法进行其他的读操作、写操作
+      b.写锁（**互斥锁**）：如果当前写操作没有完成，则无法进行其他的读操作、写操作
 
 * 操作范围：
   	a.表锁 ：一次性对一张表整体加锁。如MyISAM存储引擎使用表锁，**开销小、加锁快；无死锁**；但***锁的范围大，容易发生锁冲突、并发度低***。
-   b.行锁 ：一次性对一条数据加锁。如InnoDB存储引擎使用行锁，***开销大，加锁慢；容易出现死锁***；**锁的范围较小，不易发生锁冲突，并发度高**（很小概率 发生高并发问题：脏读、幻读、不可重复度、丢失更新等问题）。
-   c.页锁	
+      b.行锁 ：一次性对一条数据加锁。如InnoDB存储引擎使用行锁，***开销大，加锁慢；容易出现死锁***；**锁的范围较小，不易发生锁冲突，并发度高**（很小概率 发生高并发问题：脏读、幻读、不可重复度、丢失更新等问题）。
+      c.页锁	
 
 * ```
   #表锁
@@ -791,7 +791,7 @@
   #行锁的一种特殊情况:间隙锁：值在范围内，但却不存在
   UPDATE line_lock SET name='xx' WHERE id>1 AND id<10;
   #Mysql会自动给间隙 加索 ->间隙锁
-  #where : 际加索的范围
+  #where : 实际加索的范围
   ```
 
 * ```
@@ -860,7 +860,7 @@
 * ```
   #安装
   https://www.percona.com/downloads/percona-toolkit/LATEST/
-sudo dpkg -i percona-toolkit_3.2.0-1.focal_amd64.deb
+  sudo dpkg -i percona-toolkit_3.2.0-1.focal_amd64.deb
   sudo apt-get install -f
   ```
   
