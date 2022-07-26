@@ -1,3 +1,5 @@
+# 1.Scrapyweb
+
 ```shell
 yum install python3-devel.x86_64
 
@@ -312,5 +314,98 @@ VERBOSE = False
 
 ```shell
 
+```
+
+# 2.Scrapy
+
+> 五大核心组件
+>
+> > 1.引擎(Scrapy)
+> >     用来处理整个系统的数据流处理, 触发事务(框架核心)
+> > 2.调度器(Scheduler)
+> >     用来接受引擎发过来的请求, 压入队列中, 并在引擎再次请求的时候返回. 可以想像成一个URL（抓取网页的网址或者说是链接）的优先队列, 由它来决定下一个要抓取的网址是什么, 同时去除重复的网址
+> > 3.下载器(Downloader)（scrapy的异步在这里）
+> >     用于下载网页内容, 并将网页内容返回给蜘蛛(Scrapy下载器是建立在twisted这个高效的异步模型上的)
+> > 4.爬虫(Spiders)
+> >     爬虫是主要干活的, 用于从特定的网页中提取自己需要的信息, 即所谓的实体(Item)。用户也可以从中提取出链接,让Scrapy继续抓取下一个页面
+> > 5.项目管道(Pipeline)
+> >     负责处理爬虫从网页中抽取的实体，主要的功能是持久化实体、验证实体的有效性、清除不需要的信息。当页面被爬虫解析后，将被发送到项目管道，并经过几个特定的次序处理数据。
+
+### cmd
+
+```
+# 保存数据到文件
+scrapy runspider quotes_spider.py -o/-O quotes.jl # -o将内容追加, -O覆盖文件
+# shell
+scrapy shell "https://www.baidu.com/s?wd=%E5%A5%A5%E8%8A%AC%E5%B7%B4%E8%B5%AB"
+	response.css('title') 
+	response.css('title::text').getall() # ['百度一下，你就知道']
+	response.css('title').getall() # ['<title>百度一下，你就知道</title>']
+	response.css('title::text').re(r'百度一下.*') # ['百度一下，你就知道']
+
+	response.css('noscript a::attr(href)').get() # ['http://www.baidu.com/bdorz/login.gif?login&tpl=mn&u=http%3A%2F%2Fwww.baidu.com%2f%3fbdorz_come%3d1']
+```
+
+### tmp
+
+```
+import scrapy
+
+
+class QuotesSpider(scrapy.Spider):
+    name = 'quotes'
+    start_urls = [
+        'https://quotes.toscrape.com/tag/humor/',
+    ]
+
+    def parse(self, response):
+        for quote in response.css('div.quote'):
+            yield {
+                'author': quote.xpath('span/small/text()').get(),
+                'text': quote.css('span.text::text').get(),
+            }
+
+        next_page = response.css('li.next a::attr("href")').get()
+        if next_page is not None:
+            yield response.follow(next_page, self.parse)
+            
+# 爬网首先向属性中定义的 URL 发出请求start_urls （在这种情况下，只有幽默类别中的引号的 URL）并调用默认回调方法parse，并将响应对象作为参数传递
+
+```
+
+![](https://docs.scrapy.org/en/latest/_images/scrapy_architecture_02.png)
+
+```
+1.引擎从Spider获取初始请求 。
+
+2.Engine在 Scheduler中调度 Requests并要求抓取下一个 Requests。
+
+3.调度程序将下一个请求返回给引擎。
+
+4.引擎通过 下载器中间件将请求发送到 下载器（请参阅 参考资料）。process_request()
+
+5.页面完成下载后， Downloader会生成一个 Response（与该页面一起）并将其发送到 Engine，通过 Downloader Middlewares（请参阅 参考资料process_response()）。
+
+6.Engine接收来自 Downloader的Response并将其发送给 Spider进行处理，通过Spider Middleware（参见 参考资料process_spider_input()）。
+
+7.Spider处理 Response 并将抓取的项目和新的 Requests（后续）返回到 Engine，通过 Spider Middleware（参见 参考资料process_spider_output()）。
+
+8.Engine将处理后的项目发送到 Item Pipelines，然后将处理后的请求发送到调度程序并要求可能的下一个请求进行爬网。
+
+9.该过程重复（从第 3 步开始），直到不再有来自 Scheduler的请求。
+```
+
+```
+引擎负责控制系统所有组件之间的数据流，并在某些动作发生时触发事件。有关详细信息，请参阅上面的 数据流部分。
+
+调度程序接收来自引擎的请求并将它们排入队列以便稍后在引擎请求它们时将它们提供给它们（也提供给引擎）。
+
+下载器负责获取网页并将它们提供给引擎，引擎反过来将它们提供给蜘蛛。
+	下载器中间件是位于引擎和下载器之间的特定钩子，当请求从引擎传递到下载器时处理请求，以及从下载器传递到引擎的响应
+
+Spiders 是 Scrapy 用户编写的自定义类，用于解析响应并从中提取项目或要遵循的其他请求。有关详细信息，请参阅蜘蛛。
+	蜘蛛中间件是位于引擎和蜘蛛之间的特定钩子，能够处理蜘蛛输入（响应）和输出（项目和请求）
+
+一旦项目被蜘蛛提取（或抓取），项目管道负责处理项目。典型任务包括清理、验证和持久性（例如将项目存储在数据库中）。有关更多信息，请参阅项目管道。
 ```
 
