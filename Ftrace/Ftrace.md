@@ -386,7 +386,111 @@ brendan 探针名           0 命中数              0 未命中数
 
 > uprobes语法: https://kernel.org/doc/Documentation/trace/uprobetracer.txt
 
+```
+p[:[GRP/]EVENT] PATH:OFFSET [FETCHARGS] : Set a uprobe
+r[:[GRP/]EVENT] PATH:OFFSET [FETCHARGS] : Set a return uprobe (uretprobe)
+-:[GRP/]EVENT                           : Clear uprobe or uretprobe event
+```
 
+> uprobe语法需要路径和偏移量, 内核没有用户空间软件的符号信息, 因此必须使用用户空间工具确定该偏移量并将其提供给内核
+
+```
+#Ex. 使用uprobes来检测bash shell中的readline()函数
+# 	 从查找符号偏移量开始
+readelf -s /bin/bash | grep -w readline
+echo 'p:partita /bin/bash:0xb9e98' >> uprobe_events
+echo 1 > events/uprobes/partita/enable
+cat trace_pipe
+	bash-3867    [001] ....   365.663199: brenda: (0xaaaae7eb9e98)
+  bash-3867    [001] ....   370.543458: brenda: (0xaaaae7eb9e98)
+  bash-3867    [001] ....   387.977638: brenda: (0xaaaae7eb9e98)
+echo 0 > events/uprobes/partita/enable
+echo '-:partita' >> uprobe_events
+```
+
+```
+cat uprobe_profile 
+  /bin/bash路径 brenda探针名                                  7命中数
+
+```
+
+### Ftrace function_graph
+
+> function_graph跟踪器打印函数的调用图, 揭示代码流程
+
+```
+# Ex. 对do_nanosleep()函数使用function_graph, 显示其子函数调用
+echo do_nanosleep > set_graph_function
+# 设置函数过滤器, 只跟踪do_nanosleep()函数
+echo do_nanosleep > set_ftrace_filter
+echo function_graph > current_tracer
+cat trace_pipe
+   0)               |        gic_handle_irq() {
+   0)   1.916 us    |          gic_read_iar();
+   0)               |          __handle_domain_irq() {
+   0)               |            irq_enter() {
+   0)   0.375 us    |              irq_enter_rcu();
+   0)   1.166 us    |            }
+   0)               |            irq_find_mapping() {
+   0)   0.208 us    |              rcu_read_unlock_strict();
+   0)   0.667 us    |            }
+   0)               |            generic_handle_irq() {
+   0)               |              handle_percpu_devid_irq() {
+   0)               |                ipi_handler() {
+   0)               |                  __wake_up() {
+   0)               |                    __wake_up_common_lock() {
+   0)   0.292 us    |                      __wake_up_common();
+   0)   1.083 us    |                    }
+   0)   1.625 us    |                  }
+   0)   2.125 us    |                }
+   0)   2.708 us    |                gic_eoi_irq();
+   0)   5.459 us    |              }
+   0)   5.833 us    |            }
+   0)               |            irq_exit() {
+   0)   0.292 us    |              idle_cpu();
+   0)   0.709 us    |            }
+   0)   9.917 us    |          }
+   0) + 12.833 us   |        }
+
+echo nop > current_tracer
+echo > set_graph_function
+$: 大于1s
+@: 大于100毫秒
+*: 大于10毫秒
+#: 大于1毫秒
+!: 大于100微秒
++: 大于10微秒
+```
+
+> 选项
+
+```
+ls options/funcgraph*
+options/funcgraph-abstime   
+options/funcgraph-irqs      
+进程名: 				options/funcgraph-proc
+CPU ID: 			options/funcgraph-cpu       
+延时标记: 		 options/funcgraph-overhead  
+options/funcgraph-tail
+函数持续时间: 	options/funcgraph-duration  
+options/funcgraph-overrun
+```
+
+# 7.Ftrace hwlat
+
+> hwlat硬件延时检测器
+>
+> 检测到外部硬件事件对CPU性能的干扰
+>
+> Ex.
+>
+> > 系统管理中断(SMI)事件
+> >
+> > 虚拟机管理程序扰动
+
+# 8.Ftrace hist
+
+> https://kernel.org/doc/Documentation/trace/histogram.txt
 
 # Tracers List
 
