@@ -420,6 +420,7 @@ cat uprobe_profile
 
 ```
 # Ex. 对do_nanosleep()函数使用function_graph, 显示其子函数调用
+# __crypto_alloc_tfm
 echo do_nanosleep > set_graph_function
 # 设置函数过滤器, 只跟踪do_nanosleep()函数
 echo do_nanosleep > set_ftrace_filter
@@ -460,6 +461,17 @@ $: 大于1s
 #: 大于1毫秒
 !: 大于100微秒
 +: 大于10微秒
+
+cat /proc/`pgrep zsh`/maps | grep /bin/zsh | grep r-xp
+	00400000-004ac000 r-xp 00000000 fd:00 537642                             /usr/bin/zsh
+
+objdump -T /bin/zsh |grep -w zfree
+	0000000000457610 g    DF .text  0000000000000012  Base        zfree
+# 0x46420是在对象/bin/zsh中加载的zfree的偏移量0x00400000。
+
+echo 'p:zfree_entry /bin/zsh:0x46420 %ip %ax' > uprobe_events
+echo 'r:zfree_exit /bin/zsh:0x46420 %ip %ax' >> uprobe_events
+echo 1 > events/uprobes/enable
 ```
 
 > 选项
