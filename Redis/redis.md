@@ -5,11 +5,11 @@
 > select db
 > ```
 
-![image-20210703210630886](J:\笔记\imgs\redis\image-20210703210630886.png)
+![image-20210703210630886](L:\Developer\JagdStandard\Redis\redis\image-20210703210630886.png)
 
 ### String
 
-![image-20210703210826401](J:\笔记\imgs\redis\image-20210703210826401.png)
+![image-20210703210826401](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703210826401.png)
 
 ```ctl
 #key没有才设置 有返回空 
@@ -35,19 +35,19 @@ append key chars
 substr key index index (从前向后截取)
 ```
 
-![image-20210703213538790](J:\笔记\imgs\redis\image-20210703213538790.png)
+![image-20210703213538790](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703213538790.png)
 
-![image-20210703213744259](J:\笔记\imgs\redis\image-20210703213744259.png)
+![image-20210703213744259](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703213744259.png)
 
 ### set
 
-![image-20210703221110010](J:\笔记\imgs\redis\image-20210703221110010.png)
+![image-20210703221110010](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703221110010.png)
 
-![image-20210703221211530](J:\笔记\imgs\redis\image-20210703221211530.png)
+![image-20210703221211530](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703221211530.png)
 
-![image-20210703221305605](J:\笔记\imgs\redis\image-20210703221305605.png)
+![image-20210703221305605](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703221305605.png)
 
-![image-20210703221019865](J:\笔记\imgs\redis\image-20210703221019865.png)
+![image-20210703221019865](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703221019865.png)
 
 ```redis-cli
 sadd user u1
@@ -55,33 +55,33 @@ sadd user u2 u3 u4
 smembers user
 ```
 
-![image-20210703223142158](J:\笔记\imgs\redis\image-20210703223142158.png)
+![image-20210703223142158](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210703223142158.png)
 
-<img src="J:\笔记\imgs\redis\image-20210704000853848.png" alt="image-20210704000853848"  />
+<img src="L:\Developer\JagdStandard\Redis\redis\image-20210704000853848.png" alt="image-20210704000853848"  />
 
-![image-20210704015634988](J:\笔记\imgs\redis\image-20210704015634988.png)
+![image-20210704015634988](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210704015634988.png)
 
 ### list
 
-![image-20210704021346187](J:\笔记\imgs\redis\image-20210704021346187.png)
+![image-20210704021346187](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210704021346187.png)
 
-![image-20210704021717821](J:\笔记\imgs\redis\image-20210704021717821.png)
+![image-20210704021717821](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210704021717821.png)
 
-![image-20210704022215714](J:\笔记\imgs\redis\image-20210704022215714.png)
+![image-20210704022215714](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210704022215714.png)
 
 ### hash
 
-![image-20210704024028182](J:\笔记\imgs\redis\image-20210704024028182.png)
+![image-20210704024028182](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210704024028182.png)
 
 ### bloom filter
 
-![image-20210704025009815](J:\笔记\imgs\redis\image-20210704025009815.png)
+![image-20210704025009815](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210704025009815.png)
 
-![image-20210704025249244](J:\笔记\imgs\redis\image-20210704025249244.png)
+![image-20210704025249244](L:\Developer\JagdStandard\Redis\imgs\nets\image-20210704025249244.png)
 
-![image-20210704025314417](J:\笔记\imgs\redis\image-20210704025314417.png)
+![image-20210704025314417](L:\Developer\JagdStandard\Redis\redis\image-20210704025314417.png)
 
-![image-20210704025450036](J:\笔记\imgs\redis\image-20210704025450036.png)
+![image-20210704025450036](L:\Developer\JagdStandard\Redis\redis\image-20210704025450036.png)
 
 ```shell
 https://github.com/RedisBloom/RedisBloom

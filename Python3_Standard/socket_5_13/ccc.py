@@ -38,7 +38,7 @@ class pipethread(threading.Thread):
 
 
 class portmap(threading.Thread):
-    def __init__(self, port, newhost, newport, local_ip='192.168.15.0'):
+    def __init__(self, port, newhost, newport, local_ip='192.168.14.216'):
         threading.Thread.__init__(self)
         self.newhost = newhost
         self.newport = newport
@@ -154,6 +154,7 @@ class portmapUDP(threading.Thread):
 
 if __name__ == '__main__':
     # export http_proxy=http://127.0.0.1:1087;export https_proxy=http://127.0.0.1:1087;
-    # export http_proxy=http://192.168.15.0:6001;export https_proxy=http://192.168.15.0:6001;
+    # export http_proxy=http://192.168.14.216;export https_proxy=http://192.168.14.216:6001;
+    # set https_proxy=socks5://127.0.0.1:9090 set http_proxy=socks5://127.0.0.1:9090
     myp = portmap(6001, '127.0.0.1', 9090)
     myp.start()
