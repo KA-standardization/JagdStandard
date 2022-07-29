@@ -1495,13 +1495,13 @@ rdb-save-incremental-fsync yes
 ```
 
 ```
-#             with redi.pipeline(transaction=False) as p:
-#                 for data in datas:
-#                     url_token = data['url_token']
-#                     data_str = json.dumps(data, ensure_ascii=False)
-#                     p.hset('zhihu:dong-feng-ri-chan-46', url_token, data_str)
-#                     p.sadd('zhihu:url_token', url_token)
-#                 p.execute()
+with redi.pipeline(transaction=False) as p:
+	for data in datas:
+	url_token = data['url_token']
+	data_str = json.dumps(data, ensure_ascii=False)
+	p.hset('zhihu:dong-feng-ri-chan-46', url_token, data_str)
+	p.sadd('zhihu:url_token', url_token)
+	p.execute()
 ```
 
 # tmp
@@ -1551,5 +1551,22 @@ s0 s1
 mset {aaa}:1:name kaiser {aaa}:1:age 9
 
 redlock
+```
+
+```
+# IDA
+bloom_calc_hash64(const void *buffer, int len)
+# source
+[root@localhost RedisBloom-2.2.18]# grep -r -e bloom_calc_hash64 .
+./contrib/bloom.c:bloom_hashval bloom_calc_hash64(const void *buffer, int len) {
+#
+Structure to keep track of one bloom filter.   Caller needs to allocate this and pass it to the functions below.  First call for every struct must be to bloom_init().
+结构跟踪一个布卢姆过滤器。调用者需要分配这个并将它传递给下面的函数。每个struct的第一个调用必须是对bloom_init()的调用。
+
+
+
+
+
+
 ```
 

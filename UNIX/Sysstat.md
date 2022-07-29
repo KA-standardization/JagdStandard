@@ -14,6 +14,9 @@ vi /etc/default/sysstat
 	ENABLED="true"
 service sysstat restart
 cat /etc/cron.d/sysstat
+# Cent
+# vi /etc/sysconfig/sysstat  vi /etc/sysconfig/sysstat.ioconf
+#
 5-55/10 * * * * root command -v debian-sa1 > /dev/null && debian-sa1 1 1
 */10 * * * * root command -v debian-sa1 > /dev/null && debian-sa1 1 1 -S ALL #记录所有统计数据 sadc -S XALL可以记录更多统计数据的明细
 

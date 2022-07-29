@@ -193,10 +193,10 @@
 ###### select_type |查询类型
 
 * ```
-  #PRIMARY:包含子查询SQL中的 主查询 （最外层）
+  #PRIMARY: 包含子查询SQL中的 主查询 （最外层）
   #SUBQUERY：包含子查询SQL中的 子查询 （非最外层）
-  #simple:简单查询（不包含子查询、union）
-  #derived:衍生查询(使用到了临时表)
+  #simple: 简单查询（不包含子查询、union）
+  #derived: 衍生查询(使用到了临时表)
   	a.在from子查询中只有一张表
   		EXPLAIN SELECT cr.cname FROM (SELECT * FROM course WHERE tid IN(1,2)) cr;
   	b.在from子查询中， 如果有table1 union table2 ，则table1 就是derived,table2就是union
@@ -211,7 +211,7 @@
 
 * ```
   #system>const>eq_ref>ref>range>index>all
-  #system（忽略）: 只有一条数据的系统表 ；或 衍生表只有一条数据的主查询
+  #system（忽略）: 只有一条数据的系统表 ；或衍生表只有一条数据的主查询
   	CREATE TABLE test01(
   						tid INT(3),
   						tname VARCHAR(20)
@@ -222,7 +222,7 @@
   ```
 
 * ```
-  #const:仅仅能查到一条数据的SQL ,用于Primary key 或unique索引
+  #const: 仅仅能查到一条数据的SQL ,用于Primary key 或unique索引
   	EXPLAIN SELECT * FROM test01 where tid=1;
   	#删除主键创建一般索引
   	ALTER TABLE test01 DROP PRIMARY KEY;
@@ -231,7 +231,7 @@
   ```
 
 * ```
-  #eq_ref:唯一性索引：对于每个索引键的查询，返回匹配唯一行数据（每条数据有且只有1个，不能多 、不能0）
+  #eq_ref: 唯一性索引：对于每个索引键的查询，返回匹配唯一行数据（每条数据有且只有1个，不能多 、不能0）
   	ALTER TABLE teacerCard ADD CONSTRAINT tcid_pk PRIMARY KEY(tcid);
   	ALTER TABLE teacher ADD CONSTRAINT tcid_uk UNIQUE INDEX(tcid);
   	EXPLAIN SELECT * FROM teacher t,teacerCard tc WHERE t.tcid=tc.tcid;
@@ -245,8 +245,8 @@
   ```
 
 * ```
-  #range：检索指定范围的行 ,where后面是一个范围查询(between and,>,<,>=,<=,<>)
-  #特殊:in有时候会失效,从而转为无索引ALL
+  #range：检索指定范围的行 ,where后面是一个范围查询(between and, >, <, >=, <=, <>)
+  #特殊: in有时候会失效,从而转为无索引ALL
   	CREATE INDEX tid_index ON teacher(tid);
   		ALTER TABLE teacher ADD INDEX tid_index(tid);
   	EXPLAIN SELECT * FROM teacher WHERE tid BETWEEN 1 AND 2;
@@ -257,7 +257,7 @@
 * ```
   #index：查询全部索引中数据
   	EXPLAIN SELECT tid FROM teacher;
-  	#tid 是索引， 只需要扫描索引表，不需要所有表中的所有数据
+  	#tid 是索引，只需要扫描索引表，不需要所有表中的所有数据
   ```
 
 * ```
@@ -323,7 +323,7 @@
 ###### Extra  |额外的信息
 
 * ```
-  #using filesort ：性能消耗大；需要“额外”的一次排序（查询）。常见于 order by 语句中。排序：先查询
+  #using filesort: 性能消耗大；需要“额外”的一次排序（查询）。常见于 order by 语句中。排序：先查询
   CREATE TABLE test02(
   					a CHAR(3),
   					b CHAR(3),
@@ -350,7 +350,7 @@
   ```
 
 * ```
-  #using temporary:性能损耗大 ，用到了临时表。一般出现在group by 语句中
+  #using temporary: 性能损耗大 ，用到了临时表。一般出现在group by 语句中
   EXPLAIN SELECT a FROM test02 WHERE a IN ('1','2') GROUP BY a;
   EXPLAIN SELECT a FROM test02 WHERE a IN ('2','3') GROUP BY b;
   	# ERROR 1055 (42000): Expression #1 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'mydb.test02.a' which is not functionally dependent on columns in GROUP BY clause
@@ -358,7 +358,7 @@
   ```
 
 * ```
-  #using index :性能提升; 索引覆盖（覆盖索引）。
+  #using index: 性能提升; 索引覆盖（覆盖索引）。
   #原因：不读取原文件，只从索引文件中获取数据 （不需要回表查询）只要使用到的列 全部都在索引中，就是索引覆盖using index
   EXPLAIN SELECT a,b FROM test02 WHERE a='' OR b='';	#using index
   DROP INDEX a_b_c ON test02;
@@ -371,12 +371,12 @@
   ```
 
 * ```
-  #using where :（需要回表查询）
+  #using where:（需要回表查询）
   EXPLAIN SELECT a,c FROM test02 WHERE c='';
   ```
 
 * ```
-  #impossible where ： where子句永远为false
+  #impossible where: where子句永远为false
   EXPLAIN SELECT a FROM test02 WHERE a='1' and a='2';	#impossible where
   ```
 
@@ -451,7 +451,7 @@
   ```
 
 * ```
-  不要在索引上进行任何操作（计算、函数、类型转换），否则索引失效
+  #不要在索引上进行任何操作（计算、函数、类型转换），否则索引失效
   EXPLAIN SELECT * FROM book WHERE aid=1 AND tid=2;
   EXPLAIN SELECT * FROM book WHERE aid=1 AND tid*2=2; 
   EXPLAIN SELECT * FROM book WHERE aid*2=1 AND tid=2;	#复合索引atb aid失效 所以tid失效
@@ -459,7 +459,7 @@
   ```
 
 * ```
-  复合索引不能使用不等于（!=  <>）或is null (is not null)，否则自身以及右侧所有全部失效
+  #复合索引不能使用不等于（!=  <>）或is null (is not null)，否则自身以及右侧所有全部失效
   DROP INDEX aid_tid_bid ON book;
   ALTER TABLE book ADD INDEX aid_index(aid);
   ALTER TABLE book ADD INDEX tid_index(tid);
@@ -498,7 +498,7 @@
 * ```
   #exist和in
   #select ..from table where exist (子查询) ;
-  #select ..from table where 字段 in  (子查询) ;
+  #select ..from table where 字段 in (子查询) ;
   #如果主查询的数据集大，则使用In   ,效率高。
   #如果子查询的数据集大，则使用exist,效率高。	
   
@@ -511,7 +511,7 @@
 
 * ```
   #order by 优化
-  #using filesort 有两种算法：双路排序、单路排序 （根据IO的次数）
+  #using filesort 有两种算法: 双路排序、单路排序 (根据IO的次数)
   #调大buffer的容量大小
   #set max_length_for_sort_data = 1024  单位byte
   ```
@@ -520,7 +520,7 @@
 
 * ```
   #MySQL提供的一种日志记录，用于记录MySQL种响应时间超过阀值的SQL语句 （long_query_time，默认10秒）
-  #检查是否开启了 慢查询日志 ：   
+  #检查是否开启了 慢查询日志:   
   SHOW VARIABLES LIKE '%slow_query_log%';
   #临时开启：
   SET GLOBAL slow_query_log = 1 ;  --在内存种开启
