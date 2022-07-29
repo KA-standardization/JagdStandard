@@ -1,3 +1,6 @@
+# tmp
+
+```
 yum install openssl openssl-devel -y
 nikto -host 10.0.17.100 # 61.151.167.89 mp.weixin.qq.com
 ' or 1=1 --+
@@ -29,3 +32,5 @@ find / -name "test.py"
 openssl passwd -1 -salt admin 123456
 				MD5 加盐 
 47.98.188.62
+```
+
