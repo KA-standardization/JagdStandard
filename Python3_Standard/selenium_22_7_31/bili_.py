@@ -12,13 +12,15 @@ async def foo():
     option = Options()
     # option.add_argument("--proxy-server=")
     option.add_argument("--headless")
-    web = Chrome(executable_path='./chromedriver', options=option)
-    await asyncio.sleep(random.randint(3, 10))
+    # http://chromedriver.storage.googleapis.com/index.html
+    # web = Chrome(executable_path='./chromedriver', options=option)
+    web = Chrome(executable_path='./chromedriver.exe', options=option)
+    # await asyncio.sleep(random.randint(3, 10))
     web.get("https://www.bilibili.com/video/BV1EG411h7u2")
     page = web.page_source
     cnt = re.findall(re.compile('span title="总播放数(.*)" class="view item"', re.S), page)
     print("时间= {}, 播放量={}".format(datetime.datetime.now(), cnt[0]))
-    await asyncio.sleep(random.randint(13, 240))
+    await asyncio.sleep(random.randint(21, 247))
     web.quit()
 
 
@@ -26,7 +28,8 @@ def bar():
     option = Options()
     # option.add_argument("--proxy-server=")
     option.add_argument("--headless")
-    web = Chrome(executable_path='./chromedriver', options=option)
+    # web = Chrome(executable_path='./chromedriver', options=option)
+    web = Chrome(executable_path='./chromedriver.exe', options=option)
     web.get("https://www.bilibili.com/video/BV1EG411h7u2")
     page = web.page_source
     cnt = re.findall(re.compile('span title="总播放数(.*)" class="view item"', re.S), page)
