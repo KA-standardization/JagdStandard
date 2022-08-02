@@ -20,7 +20,7 @@ async def foo():
     page = web.page_source
     cnt = re.findall(re.compile('span title="总播放数(.*)" class="view item"', re.S), page)
     print("时间= {}, 播放量={}".format(datetime.datetime.now(), cnt[0]))
-    await asyncio.sleep(random.randint(21, 247))
+    await asyncio.sleep(random.randint(47, 247))
     web.quit()
 
 
@@ -34,13 +34,13 @@ def bar():
     page = web.page_source
     cnt = re.findall(re.compile('span title="总播放数(.*)" class="view item"', re.S), page)
     print("时间= {}, 播放量={}".format(datetime.datetime.now(), cnt[0]))
-    time.sleep(random.randint(13, 240))
+    time.sleep(random.randint(7, 17))
     web.quit()
 
 
 def main():
     tasks = []
-    for i in range(10):
+    for i in range(3):
         task = asyncio.ensure_future(foo())
         tasks.append(task)
 
